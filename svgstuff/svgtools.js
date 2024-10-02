@@ -24,20 +24,17 @@ let
                 targetElement.setAttribute(attr.name, attr.value);
             }
         });
-    };
+    },
+
+    listAttributes = (element) => {
+        Array.from(sourceElement.attributes).forEach(attr => console.log("Attribute: ", attr.name, "value:", attr.value))
+    }
 
 
-
-/* definitions:
-
-element - SVG element 
-
-
-*/
 
 export let
     //========================================================================================================
-    // Function to recursively flatten all group elements. 
+    // recursively flatten all group elements. 
     // copies the group attributes (e.g., stroke, fill) to individual elements unless they override it
 
     flattenGroups = (element) => {
@@ -56,7 +53,8 @@ export let
     },
 
     //==================================================================================
-    // Function to convert an SVG element to a path element
+    // convert an SVG element to a path element
+    // copies the attributes if they are in the allowlist.
     elementToPathElement = el => {
         let str = "";
         switch (el.tagName) {
@@ -100,3 +98,5 @@ export let
         copySVGAttributes(el, path, "d,stroke,stroke-width,fill,style,stroke-linejoin,stroke-linecap,transform".split(","));
         return path;
     };
+
+
