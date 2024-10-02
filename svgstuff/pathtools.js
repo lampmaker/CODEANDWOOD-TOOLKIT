@@ -1,15 +1,15 @@
 // utilities to work on paths.  a path contains an array points[] 
 // path=[
-//{points:[[x,y],...[]]}]
+//{points:[[x,y],...[xn,yn]]}]
 
 import { LOOP } from "../utilities/arraytools";
 export let
     //=======================================================================================================
     // length of a single line, point-to-point
-    lineLength = pointArray => {
+    lineLength = points => {
         let length = 0;
-        if (pointArray.length == 1) return 0;
-        LOOP(pointArray.length - 1, i => length += dist(pointArray[i], pointArray[i + 1]));
+        if (points.length == 1) return 0;
+        LOOP(points.length - 1, i => length += dist(points[i], points[i + 1]));
         return length;
     },
     //=======================================================================================================
@@ -54,13 +54,11 @@ export let
     // The function returns the simplified path data.
     //===================================================================================================================
     simplifyPath = (points, accuracy) => {
-        // The Ramer-Douglas-Peucker algorithm.
-        var simplifySection = function (firstIndex, lastIndex) {
-            if (lastIndex - firstIndex < 2) return [points[firstIndex]];
-            var maxDistance = 0, index = -1;
+        var simplifySection =  (firstIndex, lastIndex)=> {
+            if (lastIndex - firstIndex < 2) return [points[firstIndex]]; // short line
+            var maxDistance = 0, index = -1
             var firstPoint = points[firstIndex],
                 lastPoint = points[lastIndex];
-            if (dist(firstPoint, lastPoint) == 0) return [points[firstIndex]];
             for (var i = firstIndex + 1; i < lastIndex; i++) {
                 var distance = distanceToLineSegment(points[i], firstPoint, lastPoint)
                 if (distance > maxDistance) {
