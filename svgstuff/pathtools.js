@@ -1,6 +1,8 @@
-// utilities to work on paths.  a path contains an array points[] 
-// path=[
-//{points:[[x,y],...[xn,yn]]}]
+// utilities to work on paths.  
+// definitions:
+// a point=  [x,y]  - array containing x,y coordinates  p.x, p.y  etc can be ysed
+// a line=  [points]  - an array of points, first point is start, last point in the array is the end of the line...
+// a path: a struct containing a line ( a points array) and other stuff such as color, original svg element tag etc.
 
 import { LOOP } from "../utilities/arraytools";
 export let
@@ -13,8 +15,8 @@ export let
         return length;
     },
     //=======================================================================================================
-    // get the first and last point of each path for easier lookup later
-    getfirstlast = paths => {
+    // assign the first and last point of each path for easier lookup later
+    getFirstLast = paths => {
         LOOP(paths.length, i => {
             paths[i].firstPoint = paths[i].points[0];
             paths[i].lastPoint = paths[i].points[paths[i].points.length - 1]
@@ -26,14 +28,14 @@ export let
     // moveLength is the length of all the moves in the path.  assumed these will not be drawn.  
     // points is the total number of points in the path
     pathLength = pathData => {
-        getfirstlast(pathData);
-        let drawLength = 0, moveLength = 0, points = 0
+        getFirstLast(pathData);
+        let drawLength = 0, moveLength = 0, pointCount = 0
         for (let i = 0; i < pathData.length; i++) {
-            points += pathData[i].points.length;
+            pointCount += pathData[i].points.length;
             drawLength += lineLength(pathData[i].points);
             if (i > 0) moveLength += dist(pathData[i].firstPoint, pathData[i - 1].lastPoint);
         }
-        return { drawLength, moveLength, points }
+        return { drawLength, moveLength, points: pointCount }
     },
     //------------------------------------------------------------------------------------------------
     // distance between a point P and a line segment AB 
