@@ -10,6 +10,7 @@ export let  // vector functions
     // rotate vector a by angle b around axis c
     rotate = (a, b, c = [0, 0, 1]) => a.mop((v, i) => dot(a, c) * (1 - Math.cos(b)) * c[i] + (v * Math.cos(b) + cross(a, c)[i] * Math.sin(b))),
     mid = (a, b, c = null) => c == null ? a.add(b).div(2) : a.add(b).add(c).div(3)
+    dist=(a,b)=>a.sub(b).L // distance between two points
 
 
 //=======================================================================================================    
