@@ -4,7 +4,7 @@
 // a line=  [points]  - an array of points, first point is start, last point in the array is the end of the line...
 // a path: a struct containing a line ( a points array) and other stuff such as color, original svg element tag etc.
 
-import { LOOP } from "../utilities/arraytools";
+import { LOOP ,dot} from "./arraytools.js";
 export let
     //=======================================================================================================
     // length of a single line, point-to-point

@@ -1,0 +1,83 @@
+<html>
+
+<head>
+
+</head>
+
+<body style="font-family: Arial, Helvetica, sans-serif;">
+    <h2> Original image</h2>
+    <div>
+        <img style="border: 2px solid blue;" src="./test.svg" />
+
+    </div>
+    <div>
+        <textarea id="log" rows="50" cols="150"></textarea>
+    </div>
+    <script type="module">
+
+        import * as ARRAYTOOLS from '../utilities/arraytools.js'
+        import * as SVGTOOLS from '../utilities/svgtools.js';
+
+        let log = document.querySelector("#log")
+        let divider = "\n==================================================================\n"
+
+
+        //=============================================================================        
+        fetch('./test.svg')
+            .then(response => response.text()) // Get the SVG content as a string
+            .then(svgstring => {
+                // data read
+                log.value += divider + "svgstring:" + svgstring + divider
+                //
+                let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
+                log.value += SVGTOOLS.listAttributes(SVGDoc)
+
+                let obj = {}
+                Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc))  // add the main attributes to the object
+
+                // flatten svg
+                SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
+
+                // converting all elements to path objects, ignoring null elements
+                obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p=>p)
+
+                // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
+
+                obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, 1))
+
+
+
+
+
+
+
+
+
+
+
+            })
+
+
+
+
+
+
+
+
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+
+</html>
