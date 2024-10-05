@@ -77,11 +77,15 @@ export let
                 break;
             case 'circle':
                 const cx = attrFloat(el, 'cx'), cy = attrFloat(el, 'cy'), r = attrFloat(el, 'r');
-                str = `M${cx - r},${cy} A${r},${r} 0 1,0 ${cx + r},${cy} A${r},${r} 0 1,0 ${cx - r},${cy} Z`;
+                str = `M${cx - r},${cy} 
+                       A${r},${r} 0 1,1 ${cx + r},${cy} 
+                       A${r},${r} 0 1,1 ${cx - r},${cy} Z`;  // Corrected large arc flag
                 break;
             case 'ellipse':
                 const ex = attrFloat(el, 'cx'), ey = attrFloat(el, 'cy'), rx = attrFloat(el, 'rx'), ry = attrFloat(el, 'ry');
-                str = `M${ex - rx},${ey} A${rx},${ry} 0 1,0 ${ex + rx},${ey} A${rx},${ry} 0 1,0 ${ex - rx},${ey} Z`;
+                str = `M${ex - rx},${ey} 
+                       A${rx},${ry} 0 1,1 ${ex + rx},${ey} 
+                       A${rx},${ry} 0 1,1 ${ex - rx},${ey} Z`;  // Corrected large arc flag
                 break;
             case 'line':
                 str = `M${attrFloat(el, 'x1')},${attrFloat(el, 'y1')} 
@@ -171,21 +175,25 @@ export let
         return [P3]; // If the deviation is acceptable, return the final point P3
     },
     //------------------------------------------------------------------------------------------------
-        approxArc = (P1, P2, R, xAxisRotation, largeArcFlag, sweepFlag, maxDistance) => {
-        const rad = (deg) => (deg * PI) / 180, [cosRot, sinRot] = [cos(rad(xAxisRotation)), sin(rad(xAxisRotation))];
+     approxArc = (P1, P2, R, xAxisRotation, largeArcFlag, sweepFlag, maxDistance) => {
+        const rad = (deg) => (deg * Math.PI) / 180;
+        const [cosRot, sinRot] = [Math.cos(rad(xAxisRotation)), Math.sin(rad(xAxisRotation))];
     
+        // Step 1: Calculate transformed P1' and P2'
         const P1Prime = [
             cosRot * (P1[0] - P2[0]) / 2 + sinRot * (P1[1] - P2[1]) / 2,
             -sinRot * (P1[0] - P2[0]) / 2 + cosRot * (P1[1] - P2[1]) / 2
         ];
     
-        const radiiCheck = pow(P1Prime[0], 2) / pow(R[0], 2) + pow(P1Prime[1], 2) / pow(R[1], 2);
-        if (radiiCheck > 1) R = [R[0] * sqrt(radiiCheck), R[1] * sqrt(radiiCheck)];
+        // Step 2: Ensure radii satisfy the geometric constraint
+        let radiiScale = Math.pow(P1Prime[0], 2) / Math.pow(R[0], 2) + Math.pow(P1Prime[1], 2) / Math.pow(R[1], 2);
+        if (radiiScale > 1) R = [R[0] * Math.sqrt(radiiScale), R[1] * Math.sqrt(radiiScale)];
     
+        // Step 3: Calculate center of the ellipse
         const signFactor = (largeArcFlag !== sweepFlag) ? 1 : -1;
-        const factor = signFactor * sqrt(
-            (pow(R[0], 2) * pow(R[1], 2) - pow(R[0], 2) * pow(P1Prime[1], 2) - pow(R[1], 2) * pow(P1Prime[0], 2)) /
-            (pow(R[0], 2) * pow(P1Prime[1], 2) + pow(R[1], 2) * pow(P1Prime[0], 2))
+        const factor = signFactor * Math.sqrt(
+            (Math.pow(R[0], 2) * Math.pow(R[1], 2) - Math.pow(R[0], 2) * Math.pow(P1Prime[1], 2) - Math.pow(R[1], 2) * Math.pow(P1Prime[0], 2)) /
+            (Math.pow(R[0], 2) * Math.pow(P1Prime[1], 2) + Math.pow(R[1], 2) * Math.pow(P1Prime[0], 2))
         );
     
         const centerPrime = [(factor * R[0] * P1Prime[1]) / R[1], -(factor * R[1] * P1Prime[0]) / R[0]];
@@ -194,26 +202,58 @@ export let
             sinRot * centerPrime[0] + cosRot * centerPrime[1] + (P1[1] + P2[1]) / 2
         ];
     
-        const startAngle = atan2((P1Prime[1] - centerPrime[1]) / R[1], (P1Prime[0] - centerPrime[0]) / R[0]);
-        const endAngle = atan2((P2[1] - center[1]) / R[1], (P2[0] - center[0]) / R[0]);
+        // Step 4: Calculate start and end angles
+        const startAngle = Math.atan2((P1[1] - center[1]) / R[1], (P1[0] - center[0]) / R[0]);
+        const endAngle = Math.atan2((P2[1] - center[1]) / R[1], (P2[0] - center[0]) / R[0]);
     
+        // Step 5: Adjust the sweep angle based on flags
         let sweepAngle = endAngle - startAngle;
-        sweepAngle = (!sweepFlag && sweepAngle > 0) ? sweepAngle - 2 * PI : (sweepFlag && sweepAngle < 0) ? sweepAngle + 2 * PI : sweepAngle;
+        if (sweepFlag) {
+            if (sweepAngle < 0) sweepAngle += 2 * Math.PI; // Sweep clockwise
+        } else {
+            if (sweepAngle > 0) sweepAngle -= 2 * Math.PI; // Sweep counterclockwise
+        }
     
-        const pointOnArc = (angle) => [center[0] + cos(angle) * R[0], center[1] + sin(angle) * R[1]];
+        // Adjust for largeArcFlag
+        if (largeArcFlag && Math.abs(sweepAngle) < Math.PI) {
+            sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * Math.PI - Math.abs(sweepAngle));
+        } else if (!largeArcFlag && Math.abs(sweepAngle) > Math.PI) {
+            sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * Math.PI - Math.abs(sweepAngle));
+        }
     
+        // Helper function to calculate the point on the arc for a given angle
+        const pointOnArc = (angle) => [
+            center[0] + Math.cos(angle) * R[0],
+            center[1] + Math.sin(angle) * R[1]
+        ];
+    
+        // Helper function to recursively refine the arc approximation
         const refineArc = (startAngle, endAngle, maxDistance) => {
-            const midAngle = (startAngle + endAngle) / 2, start = pointOnArc(startAngle), mid1 = pointOnArc(midAngle), end = pointOnArc(endAngle);
-            const midLine = mid(start, end), deviation = dist(mid1, midLine);
+            const midAngle = (startAngle + endAngle) / 2;
+            const start = pointOnArc(startAngle);
+            const mid1 = pointOnArc(midAngle);
+            const end = pointOnArc(endAngle);
     
-            return deviation > maxDistance ? [
-                ...refineArc(startAngle, midAngle, maxDistance),
-                ...refineArc(midAngle, endAngle, maxDistance)
-            ] : [start, end];
+            // Midpoint of the straight line and the actual arc midpoint
+            const midLine = mid(start, end);
+            const deviation = dist(mid1, midLine);
+    
+            if (deviation > maxDistance) {
+                // If the deviation exceeds maxDistance, subdivide the arc further
+                return [
+                    ...refineArc(startAngle, midAngle, maxDistance),
+                    ...refineArc(midAngle, endAngle, maxDistance)
+                ];
+            } else {
+                return [start, end]; // Return the start and end points if within tolerance
+            }
         };
     
-        return refineArc(startAngle, endAngle, maxDistance);
+        // Start approximation
+        return refineArc(startAngle, startAngle + sweepAngle, maxDistance);
     },
+    
+    
     
     
     //=====================================================================================================

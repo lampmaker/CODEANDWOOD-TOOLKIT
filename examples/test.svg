@@ -21,6 +21,9 @@
   <!-- Arc -->
   <path d="M 100 400 A 50 50 0 0 0 200 400" stroke="pink" fill="none" stroke-width="3" />
 
+<!-- Arc -->
+  <path d="M 200 350 A 50 50 0 0 0 100 350" stroke="pink" fill="none" stroke-width="3" />
+
   <!-- Complex Path combining multiple elements (line, arc, cubic bezier) -->
   <path d="M 300 400 L 350 450 A 30 30 0 0 1 400 450 C 450 400, 500 500, 550 450" fill="none" stroke="cyan" stroke-width="4" />
 
