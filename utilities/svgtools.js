@@ -109,13 +109,8 @@ export let
         }
         console.log("Converting Element " + el.tagName + " -> " + str)
         // Create a new path element
-
         const path = getAttributes(el)
-        // Copy other relevant attributes (e.g., fill, stroke, etc.)
-        // copySVGAttributes(el, path, "stroke,stroke-width,fill,style,stroke-linejoin,stroke-linecap,transform".split(","));  
-        // path.setAttribute('d', str);
         path.d = str;
-
         return path;
     },
     //------------------------------------------------------------------------------------------------
@@ -245,9 +240,13 @@ export let
         // Start the approximation
         return refineArc(startAngle, startAngle + sweepAngle, maxDistance);
     },
+
     //=====================================================================================================
     // converts a  path ("the 'd' string) into an array of points.
-    // iterate over all teh commands in the path and return the points
+    // maxDistance is the maximum error allowed in the approximation, the returned straight lines may not deviate more than this from the curve
+    // returns an array of points
+    // if a move command is encountered, a null is inserted in the array to separate the subpaths for later processing
+    // the points are returned as an array of [x,y] arrays
     pathtoPointArray = (d, maxDistance) => {
         const commands = parsePath(d);
         let points = [];
@@ -260,7 +259,7 @@ export let
             let endPoint, cp1, cp2, cp3;
             switch (cmd.type.toLowerCase()) {
                 case 'm': //  Move to
-                    if (points.length>0)points.push(null);
+                    if (points.length > 0) points.push(null);
                     addPoint(cmd.values.xy.add(offset))
                     firstPoint = prevPoint;
                     break;
@@ -317,10 +316,11 @@ export let
     },
 
     //=====================================================================================================
-    // splits all paths in an element if the points of the path have a null value.  copies tghe attributes to the new path
+    // splits all paths in an element if the points of the path have a null value.  copies the attributes to the new path
     // returns an array of path data objects
-     splitPaths = pathArray => {
-        let result = [];        
+    // ! the d attribute is unchanged, this means the points array and the d attributes are no longer the same. 
+    splitPaths = pathArray => {
+        let result = [];
         pathArray.forEach(path => {
             let points = path.points;
             let currentPoints = []; // To store the current sub-path
@@ -333,13 +333,13 @@ export let
                 } else {
                     currentPoints.push(point); // Add point to the current sub-path
                 }
-            });                
-            if (currentPoints.length > 0)                 result.push({ ...path, points: currentPoints });
-            
-        });        
+            });
+            if (currentPoints.length > 0) result.push({ ...path, points: currentPoints });
+
+        });
         return result;
     };
-    
+
 
 
 
