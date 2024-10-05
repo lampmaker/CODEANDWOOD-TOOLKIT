@@ -1,17 +1,36 @@
 <html>
 
 <head>
+    <style>
+        #main {
+            position: relative;
+        }
 
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 2px red dashed;
+            box-sizing: border-box;
+            z-index: -1;
+        }
+
+        img {
+            border: 2px solid blue;
+            box-sizing: border-box;
+            z-index: 1;
+        }
+    </style>
 </head>
 
 <body style="font-family: Arial, Helvetica, sans-serif;">
     <h2> Original image</h2>
-    <div>
-        <img style="border: 2px solid blue;" src="./test.svg" />
-
+    <div id="main">
+        <img id="svgImage" />
+        <canvas id="canvas"></canvas>
     </div>
     <div>
-        <textarea id="log" rows="50" cols="150"></textarea>
+        <textarea id="log" rows="30" cols="100"></textarea>
     </div>
     <script type="module">
 
@@ -26,11 +45,17 @@
         fetch('./test.svg')
             .then(response => response.text()) // Get the SVG content as a string
             .then(svgstring => {
+
                 // data read
                 log.value += divider + "svgstring:" + svgstring + divider
+                // show the svgDoc in the image
+                let svgImage = document.querySelector("#svgImage")
+                svgImage.src = "data:image/svg+xml," + svgstring
                 //
                 let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
                 log.value += SVGTOOLS.listAttributes(SVGDoc)
+
+
 
                 let obj = {}
                 Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc))  // add the main attributes to the object
@@ -39,18 +64,31 @@
                 SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
 
                 // converting all elements to path objects, ignoring null elements
-                obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p=>p)
+                obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p)
 
                 // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
 
                 obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, 1))
 
+                // update the canvas size to match the image
+                let canvas = document.querySelector("#canvas")
+                canvas.width = obj.width
+                canvas.height = obj.height
 
-
-
-
-
-
+                // draw the paths on the canvas, behind the svg image
+                let ctx = canvas.getContext("2d")
+                ctx.strokeStyle = "green"
+                ctx.lineWidth = 10
+                obj.paths.forEach(path => {
+                    ctx.beginPath()
+                    let move = true;
+                    path.points.forEach((point, i) => {
+                        if (point == null) { move = true; return }
+                        if (move) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y)
+                        move = false
+                    })
+                    ctx.stroke()
+                })
 
 
 
