@@ -13,15 +13,18 @@ let
 import { dist } from "./arraytools.js";
 import { distanceToLineSegment } from "./pathtools.js";
 
-let{ sin, cos, pow, asin, acos, atan, atan2, tan, PI,max,min,sqrt } =Math
+let { sin, cos, pow, asin, acos, atan, atan2, tan, PI, max, min, sqrt, abs } = Math
 
 
 export let
+    //================================================================================================
     // convert SVG strings to DOM element and back
     SVG2Doc = (svgData) => parser.parseFromString(svgData, 'image/svg+xml').documentElement,
     Doc2SVG = (svgDoc) => serializer.serializeToString(svgDoc),
-    // create Element
+    //================================================================================================
+    // create a new SVG element
     CreateSVGElement = (tag) => document.createElementNS("http://www.w3.org/2000/svg", tag),
+    //================================================================================================
     CopyObject = (obj) => JSON.parse(JSON.stringify(obj)),
     listAttributes = (element) => {
         let result = `Element: ${element.tagName}, Attributes:`;
@@ -34,10 +37,11 @@ export let
         return result
     },
 
-
+    //================================================================================================
+    // copy the attributes from one element to another. only copy the attributes that are in the allowlist or copy all if allowlist is null
     copySVGAttributes = (sourceElement, targetElement, allowlist = null) => {
         Array.from(sourceElement.attributes).forEach(attr => {
-            // Check if the attribute is in the allowlist or if allowlist is null (copy all)
+
             if ((!allowlist || allowlist.includes(attr.name)) && !targetElement.hasAttribute(attr.name)) {
                 targetElement.setAttribute(attr.name, attr.value);
             }
@@ -175,87 +179,72 @@ export let
         return [P3]; // If the deviation is acceptable, return the final point P3
     },
     //------------------------------------------------------------------------------------------------
-     approxArc = (P1, P2, R, xAxisRotation, largeArcFlag, sweepFlag, maxDistance) => {
-        const rad = (deg) => (deg * Math.PI) / 180;
-        const [cosRot, sinRot] = [Math.cos(rad(xAxisRotation)), Math.sin(rad(xAxisRotation))];
-    
+    approxArc = (P1, P2, R, xAxisRotation, largeArcFlag, sweepFlag, maxDistance) => {
+        const rad = (deg) => (deg * PI) / 180;
+        const [cosRot, sinRot] = [cos(rad(xAxisRotation)), sin(rad(xAxisRotation))];
+
         // Step 1: Calculate transformed P1' and P2'
         const P1Prime = [
             cosRot * (P1[0] - P2[0]) / 2 + sinRot * (P1[1] - P2[1]) / 2,
             -sinRot * (P1[0] - P2[0]) / 2 + cosRot * (P1[1] - P2[1]) / 2
         ];
-    
+
         // Step 2: Ensure radii satisfy the geometric constraint
-        let radiiScale = Math.pow(P1Prime[0], 2) / Math.pow(R[0], 2) + Math.pow(P1Prime[1], 2) / Math.pow(R[1], 2);
-        if (radiiScale > 1) R = [R[0] * Math.sqrt(radiiScale), R[1] * Math.sqrt(radiiScale)];
-    
-        // Step 3: Calculate center of the ellipse
+        let radiiScale = (P1Prime[0] ** 2) / (R[0] ** 2) + (P1Prime[1] ** 2) / (R[1] ** 2);
+        if (radiiScale > 1) R = [R[0] * sqrt(radiiScale), R[1] * sqrt(radiiScale)];
+
+        // Step 3: Calculate the center of the ellipse
         const signFactor = (largeArcFlag !== sweepFlag) ? 1 : -1;
-        const factor = signFactor * Math.sqrt(
-            (Math.pow(R[0], 2) * Math.pow(R[1], 2) - Math.pow(R[0], 2) * Math.pow(P1Prime[1], 2) - Math.pow(R[1], 2) * Math.pow(P1Prime[0], 2)) /
-            (Math.pow(R[0], 2) * Math.pow(P1Prime[1], 2) + Math.pow(R[1], 2) * Math.pow(P1Prime[0], 2))
+        const factor = signFactor * sqrt(
+            ((R[0] ** 2) * (R[1] ** 2) - (R[0] ** 2) * (P1Prime[1] ** 2) - (R[1] ** 2) * (P1Prime[0] ** 2)) /
+            ((R[0] ** 2) * (P1Prime[1] ** 2) + (R[1] ** 2) * (P1Prime[0] ** 2))
         );
-    
+
         const centerPrime = [(factor * R[0] * P1Prime[1]) / R[1], -(factor * R[1] * P1Prime[0]) / R[0]];
         const center = [
             cosRot * centerPrime[0] - sinRot * centerPrime[1] + (P1[0] + P2[0]) / 2,
             sinRot * centerPrime[0] + cosRot * centerPrime[1] + (P1[1] + P2[1]) / 2
         ];
-    
+
         // Step 4: Calculate start and end angles
-        const startAngle = Math.atan2((P1[1] - center[1]) / R[1], (P1[0] - center[0]) / R[0]);
-        const endAngle = Math.atan2((P2[1] - center[1]) / R[1], (P2[0] - center[0]) / R[0]);
-    
+        const startAngle = atan2((P1[1] - center[1]) / R[1], (P1[0] - center[0]) / R[0]);
+        const endAngle = atan2((P2[1] - center[1]) / R[1], (P2[0] - center[0]) / R[0]);
+
         // Step 5: Adjust the sweep angle based on flags
         let sweepAngle = endAngle - startAngle;
-        if (sweepFlag) {
-            if (sweepAngle < 0) sweepAngle += 2 * Math.PI; // Sweep clockwise
-        } else {
-            if (sweepAngle > 0) sweepAngle -= 2 * Math.PI; // Sweep counterclockwise
-        }
-    
+        sweepAngle = (sweepFlag ? (sweepAngle < 0 ? sweepAngle + 2 * PI : sweepAngle) : (sweepAngle > 0 ? sweepAngle - 2 * PI : sweepAngle));
+
         // Adjust for largeArcFlag
-        if (largeArcFlag && Math.abs(sweepAngle) < Math.PI) {
-            sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * Math.PI - Math.abs(sweepAngle));
-        } else if (!largeArcFlag && Math.abs(sweepAngle) > Math.PI) {
-            sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * Math.PI - Math.abs(sweepAngle));
+        if (largeArcFlag) {
+            if (abs(sweepAngle) < PI) sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * PI - abs(sweepAngle));
+        } else {
+            if (abs(sweepAngle) > PI) sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * PI - abs(sweepAngle));
         }
-    
-        // Helper function to calculate the point on the arc for a given angle
-        const pointOnArc = (angle) => [
-            center[0] + Math.cos(angle) * R[0],
-            center[1] + Math.sin(angle) * R[1]
-        ];
-    
+
+        // Helper function to calculate a point on the arc for a given angle
+        const pointOnArc = (angle) => [center.x + cos(angle) * R.x, center.y + sin(angle) * R.y];
+
         // Helper function to recursively refine the arc approximation
         const refineArc = (startAngle, endAngle, maxDistance) => {
             const midAngle = (startAngle + endAngle) / 2;
             const start = pointOnArc(startAngle);
-            const mid1 = pointOnArc(midAngle);
+            const midPoint = pointOnArc(midAngle);
             const end = pointOnArc(endAngle);
-    
-            // Midpoint of the straight line and the actual arc midpoint
+
+            // Calculate the deviation and subdivide if needed
             const midLine = mid(start, end);
-            const deviation = dist(mid1, midLine);
-    
-            if (deviation > maxDistance) {
-                // If the deviation exceeds maxDistance, subdivide the arc further
+            if (dist(midPoint, midLine) > maxDistance) {
                 return [
                     ...refineArc(startAngle, midAngle, maxDistance),
                     ...refineArc(midAngle, endAngle, maxDistance)
                 ];
-            } else {
-                return [start, end]; // Return the start and end points if within tolerance
             }
+            return [start, end];
         };
-    
-        // Start approximation
+
+        // Start the approximation
         return refineArc(startAngle, startAngle + sweepAngle, maxDistance);
     },
-    
-    
-    
-    
     //=====================================================================================================
     // converts a  path ("the 'd' string) into an array of points.
     // iterate over all teh commands in the path and return the points
@@ -271,7 +260,7 @@ export let
             let endPoint, cp1, cp2, cp3;
             switch (cmd.type.toLowerCase()) {
                 case 'm': //  Move to
-                    points.push(null);
+                    if (points.length>0)points.push(null);
                     addPoint(cmd.values.xy.add(offset))
                     firstPoint = prevPoint;
                     break;
@@ -307,7 +296,7 @@ export let
                     prevPoint = cp3;
                     break;
                 case 'a': // Arc command
-                  console.error ("Arc command is not without bugs yet! - sometimes upside down")
+
                     const radius = cmd.values.xy
                     const xAxisRotation = cmd.values.z
                     const largeArcFlag = cmd.values.w
@@ -325,5 +314,32 @@ export let
             }
         });
         return points;
-    }
+    },
+
+    //=====================================================================================================
+    // splits all paths in an element if the points of the path have a null value.  copies tghe attributes to the new path
+    // returns an array of path data objects
+     splitPaths = pathArray => {
+        let result = [];        
+        pathArray.forEach(path => {
+            let points = path.points;
+            let currentPoints = []; // To store the current sub-path
+            points.forEach(point => {
+                if (point === null) {
+                    if (currentPoints.length > 0) {
+                        result.push({ ...path, points: currentPoints }); // Push the current sub-path
+                    }
+                    currentPoints = []; // Reset for the next sub-path
+                } else {
+                    currentPoints.push(point); // Add point to the current sub-path
+                }
+            });                
+            if (currentPoints.length > 0)                 result.push({ ...path, points: currentPoints });
+            
+        });        
+        return result;
+    };
+    
+
+
 

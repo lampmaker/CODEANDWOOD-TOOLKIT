@@ -36,6 +36,7 @@
 
         import * as ARRAYTOOLS from '../utilities/arraytools.js'
         import * as SVGTOOLS from '../utilities/svgtools.js';
+        import * as PATHTOOLS from '../utilities/pathtools.js';
 
         let log = document.querySelector("#log")
         let divider = "\n==================================================================\n"
@@ -67,29 +68,48 @@
                 obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p)
 
                 // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
+                obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, .1))
 
-                obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, 1))
+                // split the paths into separate paths if any of the point are null  ( move commands)
+                obj.paths=SVGTOOLS.splitPaths(obj.paths)
 
+                
                 // update the canvas size to match the image
                 let canvas = document.querySelector("#canvas")
                 canvas.width = obj.width
                 canvas.height = obj.height
 
-                // draw the paths on the canvas, behind the svg image
-                let ctx = canvas.getContext("2d")
-                ctx.strokeStyle = "green"
-                ctx.lineWidth = 10
-                obj.paths.forEach(path => {
-                    ctx.beginPath()
-                    let move = true;
-                    path.points.forEach((point, i) => {
-                        if (point == null) { move = true; return }
-                        if (move) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y)
-                        move = false
-                    })
-                    ctx.stroke()
-                })
 
+
+                // helper function to draw a path on the canvas. 
+                let draw=(paths, strokeStyle, lineWidth,dotSize)=>{
+                    let ctx = canvas.getContext("2d")
+                    ctx.strokeStyle = strokeStyle
+                    ctx.lineWidth = lineWidth
+                    paths.forEach(path => {
+                        ctx.beginPath()
+                        let move = true;
+                        path.points.forEach((point, i) => {
+                            if (point == null) { move = true; return }
+                            if (move) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y)                         
+                            move = false
+                        })
+                        ctx.stroke()
+                        path.points.forEach((point, i) => {
+                            if (point == null) return 
+                            ctx.beginPath()                            
+                            ctx.arc(point.x, point.y, dotSize, 0, 2 * Math.PI)
+                            ctx.stroke()
+                        })
+                        
+                    })
+                }
+
+                draw (obj.paths,"green",10)
+
+                // now simplify the paths
+                obj.paths.map(path => path.points = PATHTOOLS.simplifyPath(path.points, .5))
+                draw(obj.paths, "red", 1, 10)
 
 
 
