@@ -1,0 +1,46 @@
+<html>
+
+<head></head>
+
+<body>
+    <div id="buttons" style="height: 20px;"></div>
+    <canvas id="canvas"></canvas>
+    <script type="module">
+
+        import { AUTOCORRECT as A} from '../utilities/autocorrect.js';
+        // AUTOCORRECT will automatically try to match any methods or properties to the object you provide. it will find the _closest_ match.  First character must match to the function All characters must be in the correct order.
+        // if it finds a match, it will bind the method to the object so it does not have to search again next time.
+        // properties are not bound to the original object, they will be matched every time. so that's slow
+        // this is more for fun than anyting else. it's pretty risky ; changes in javascript may cause your shortened function to match to a different method.
+        //
+        // examples:
+        //
+        let w = A(window),               
+            d = A(document),
+            c = A(d.qS("#canvas")),         // qS-> querySelector
+            ctx = A(c.g("2d")),             // g-> getContext
+            R = w.Mh.random                     // Mh-> Math
+
+        c.w = w.iW                              // w-> width, iw-> innerwidth
+        c.h = w.iH / 2;                         //  h-> height, iw-> innerHeight
+        let
+            b = d.crl('button'),                // crl-> createElement
+            b1 = A(b),                          // cannot     
+            nt = A(d.qS("#buttons"))            // qS-> querySelector
+        b1.iL = 'click me'                      // iL-> innerHTML
+
+        nt.apC(b)                               // apC-> appendChild.  cannot use appendCHild on b1 as b1 is a proxy of b
+
+        let i = 10, loop = _ => {
+            ctx.fS = `rgba(${R() * 255},${R() * 255},${R() * 255},1)`   //  fs-> fillStyle            
+            ctx.fR(10 * i, 10 * i, 100 * i, 100 * i),                   //  fR-> fillRect
+                (i--) && w.rAF(loop)                                    //  requestAnimationFrame
+        }
+        loop()
+
+
+    </script>
+
+</body>
+
+</html>
