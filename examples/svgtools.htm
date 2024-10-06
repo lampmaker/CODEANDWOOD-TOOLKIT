@@ -71,50 +71,51 @@
 
             // show the svgDoc in the image
             const svgImage = document.querySelector("#svgImage");
-            svgImage.src = "data:image/svg+xml," +  encodeURIComponent(svgstring);;
 
+            svgImage.onload = () => {
+                let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
+
+                // get the main attributes of the svg and add to the object
+                Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc));
+
+                // flatten svg  
+                SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
+
+                // converting all elements to path objects, ignoring null elements
+                obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p);
+
+                // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
+                obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, .1));
+
+                // split the paths into separate paths if any of the point are null  ( move commands)
+                obj.paths = PATHTOOLS.splitPaths(obj.paths);
+
+                // update the canvas size to match the image
+                const canvas = document.querySelector("#canvas");
+
+                // get the first and last points of each path and add to the path 
+                PATHTOOLS.getFirstLast(obj.paths)
+
+                // match the canvas dimensions
+                canvas.width = parseFloat(obj.width)
+                canvas.height = parseFloat(obj.height)
+
+                // set the canvas size to match the image
+                canvas.style.width = svgImage.clientWidth + "px";;
+                canvas.style.height = svgImage.clientHeight + "px";
+
+
+                console.log(obj)
+            }
             // convert the svg string to a document element
-            let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
 
-
-            // get the main attributes of the svg and add to the object
-            Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc));
-
-            // flatten svg  
-            SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
-
-            // converting all elements to path objects, ignoring null elements
-            obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p);
-
-            // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
-            obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, .1));
-
-            // split the paths into separate paths if any of the point are null  ( move commands)
-            obj.paths = PATHTOOLS.splitPaths(obj.paths);
-
-            // update the canvas size to match the image
-            const canvas = document.querySelector("#canvas");
-
-            // get the first and last points of each path and add to the path 
-            PATHTOOLS.getFirstLast(obj.paths)
-
-            // match the canvas dimensions
-            canvas.width = parseFloat(obj.width)
-            canvas.height = parseFloat(obj.height)
-
-            // set the canvas size to match the image
-            canvas.style.width = svgImage.clientWidth;;
-            canvas.style.height = svgImage.clientHeight;
-
-
-            console.log(obj)
-
+            svgImage.src = "data:image/svg+xml," + encodeURIComponent(svgstring);;
 
         }
         //===============================================================================
         // helper function to draw a path on the canvas. 
         let draw = (paths, strokeStyle, lineWidth, dotSize, drawing = true, nondrawing = false) => {
-            
+
             let ctx = canvas.getContext("2d")
             ctx.clearRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
 

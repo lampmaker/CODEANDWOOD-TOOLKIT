@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="297mm"
-   height="210mm"
-   viewBox="0 0 297 210"
+   width="400mm"
+   height="200mm"
+   viewBox="0 0 400 200"
    version="1.1"
    id="svg5"
    inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
@@ -41,7 +41,7 @@
      id="layer1">
     <g
        aria-label="HELLO WORLD"
-       transform="matrix(0.78923093,0,0,1.2670563,-7.8620625,4.0486855)"
+     
        id="text2242"
        style="font-size:40.3833px;line-height:1.25;font-family:'Ink Free';-inkscape-font-specification:'Ink Free, Normal';letter-spacing:0px;word-spacing:0px;fill:none;stroke:#FF0000;stroke-width:1.01005">
       <path
