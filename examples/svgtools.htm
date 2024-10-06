@@ -71,7 +71,7 @@
 
             // show the svgDoc in the image
             const svgImage = document.querySelector("#svgImage");
-            svgImage.src = "data:image/svg+xml," + svgstring;
+            svgImage.src = "data:image/svg+xml," +  encodeURIComponent(svgstring);;
 
             // convert the svg string to a document element
             let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
