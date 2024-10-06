@@ -313,33 +313,9 @@ export let
             }
         });
         return points;
-    },
+    }
 
-    //=====================================================================================================
-    // splits all paths in an element if the points of the path have a null value.  copies the attributes to the new path
-    // returns an array of path data objects
-    // ! the d attribute is unchanged, this means the points array and the d attributes are no longer the same. 
-    splitPaths = pathArray => {
-        let result = [];
-        pathArray.forEach(path => {
-            let points = path.points;
-            let currentPoints = []; // To store the current sub-path
-            points.forEach(point => {
-                if (point === null) {
-                    if (currentPoints.length > 0) {
-                        result.push({ ...path, points: currentPoints }); // Push the current sub-path
-                    }
-                    currentPoints = []; // Reset for the next sub-path
-                } else {
-                    currentPoints.push(point); // Add point to the current sub-path
-                }
-            });
-            if (currentPoints.length > 0) result.push({ ...path, points: currentPoints });
-
-        });
-        return result;
-    };
-
+   
 
 
 

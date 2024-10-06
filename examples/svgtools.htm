@@ -11,13 +11,14 @@
             top: 0;
             left: 0;
             border: 2px red dashed;
-            box-sizing: border-box;
-            z-index: -1;
+
+            z-index: 2;
         }
 
         img {
+            width: 800px;
             border: 2px solid blue;
-            box-sizing: border-box;
+
             z-index: 1;
         }
     </style>
@@ -25,99 +26,145 @@
 
 <body style="font-family: Arial, Helvetica, sans-serif;">
     <h2> Original image</h2>
+
+    <input type="file" id="fileInput" accept=".svg">
+    <button id="simplify">Simplify</button>
+    <button id="optimize">Optimize</button>
+
     <div id="main">
         <img id="svgImage" />
         <canvas id="canvas"></canvas>
     </div>
-    <div>
-        <textarea id="log" rows="30" cols="100"></textarea>
-    </div>
+
     <script type="module">
 
         import * as ARRAYTOOLS from '../utilities/arraytools.js'
         import * as SVGTOOLS from '../utilities/svgtools.js';
         import * as PATHTOOLS from '../utilities/pathtools.js';
 
-        let log = document.querySelector("#log")
-        let divider = "\n==================================================================\n"
+        let obj = {};
+        let svgImage = document.querySelector("#svgImage")
+        let simplifyError = 0.1;
+        // ======================================================================================================================
+        // read  the SVG
+        function readAndProcessSVG(file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const svgstring = e.target.result;
+                processSVG(svgstring);
+            };
+
+            if (typeof file === 'string') {
+                fetch(file)
+                    .then(response => response.text())
+                    .then(svgstring => {
+                        processSVG(svgstring);
+                    });
+            } else {
+                reader.readAsText(file);
+            }
+        }
+        // ======================================================================================================================
+        function processSVG(svgstring) {
+            obj = {};  // clear the object
+            simplifyError = 0.1; // reset 
+
+            // show the svgDoc in the image
+            const svgImage = document.querySelector("#svgImage");
+            svgImage.src = "data:image/svg+xml," + svgstring;
+
+            // convert the svg string to a document element
+            let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
 
 
-        //=============================================================================        
-        fetch('./test.svg')
-            .then(response => response.text()) // Get the SVG content as a string
-            .then(svgstring => {
+            // get the main attributes of the svg and add to the object
+            Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc));
 
-                // data read
-                log.value += divider + "svgstring:" + svgstring + divider
-                // show the svgDoc in the image
-                let svgImage = document.querySelector("#svgImage")
-                svgImage.src = "data:image/svg+xml," + svgstring
-                //
-                let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
-                log.value += SVGTOOLS.listAttributes(SVGDoc)
+            // flatten svg  
+            SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
 
+            // converting all elements to path objects, ignoring null elements
+            obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p);
 
+            // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
+            obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, .1));
 
-                let obj = {}
-                Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc))  // add the main attributes to the object
+            // split the paths into separate paths if any of the point are null  ( move commands)
+            obj.paths = PATHTOOLS.splitPaths(obj.paths);
 
-                // flatten svg
-                SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
+            // update the canvas size to match the image
+            const canvas = document.querySelector("#canvas");
 
-                // converting all elements to path objects, ignoring null elements
-                obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p)
+            // get the first and last points of each path and add to the path 
+            PATHTOOLS.getFirstLast(obj.paths)
 
-                // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
-                obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, .1))
+            // match the canvas dimensions
+            canvas.width = parseFloat(obj.width)
+            canvas.height = parseFloat(obj.height)
 
-                // split the paths into separate paths if any of the point are null  ( move commands)
-                obj.paths=SVGTOOLS.splitPaths(obj.paths)
-
-                
-                // update the canvas size to match the image
-                let canvas = document.querySelector("#canvas")
-                canvas.width = obj.width
-                canvas.height = obj.height
+            // set the canvas size to match the image
+            canvas.style.width = svgImage.clientWidth;;
+            canvas.style.height = svgImage.clientHeight;
 
 
+            console.log(obj)
 
-                // helper function to draw a path on the canvas. 
-                let draw=(paths, strokeStyle, lineWidth,dotSize)=>{
-                    let ctx = canvas.getContext("2d")
-                    ctx.strokeStyle = strokeStyle
-                    ctx.lineWidth = lineWidth
-                    paths.forEach(path => {
-                        ctx.beginPath()
-                        let move = true;
-                        path.points.forEach((point, i) => {
-                            if (point == null) { move = true; return }
-                            if (move) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y)                         
-                            move = false
-                        })
-                        ctx.stroke()
-                        path.points.forEach((point, i) => {
-                            if (point == null) return 
-                            ctx.beginPath()                            
-                            ctx.arc(point.x, point.y, dotSize, 0, 2 * Math.PI)
-                            ctx.stroke()
-                        })
-                        
+
+        }
+        //===============================================================================
+        // helper function to draw a path on the canvas. 
+        let draw = (paths, strokeStyle, lineWidth, dotSize, drawing = true, nondrawing = false) => {
+            
+            let ctx = canvas.getContext("2d")
+            ctx.clearRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
+
+            if (nondrawing) {
+                ctx.beginPath()
+                ctx.strokeStyle = "red"
+                paths.forEach(path => {
+                    path.points.forEach((point, i) => {
+                        if (point == null) return
+                        ctx.lineTo(point.x, point.y);
                     })
-                }
+                })
+                ctx.stroke()
+            }
+            if (drawing) {
+                ctx.strokeStyle = strokeStyle
+                ctx.lineWidth = lineWidth
+                paths.forEach(path => {
 
-                draw (obj.paths,"green",10)
+                    path.points.forEach((point, i) => {
+                        if (point == null) return
+                        ctx.beginPath()
+                        ctx.arc(point.x, point.y, dotSize, 0, 2 * Math.PI)
+                        ctx.stroke()
+                    })
+                })
+                ctx.stroke()
+            }
+        }
 
-                // now simplify the paths
-                obj.paths.map(path => path.points = PATHTOOLS.simplifyPath(path.points, .5))
-                draw(obj.paths, "red", 1, 10)
+
+
+        document.querySelector("#fileInput").addEventListener("change", (e) => readAndProcessSVG(e.target.files[0]))
+
+        document.querySelector("#simplify").addEventListener("click", () => {
+            obj.paths.map(path => path.points = PATHTOOLS.simplifyPath(path.points, simplifyError))
+            console.log(simplifyError)
+            simplifyError *= 2;
+            draw(obj.paths, "green", 2, 5, true, true)
+        })
+
+
+        document.querySelector("#optimize").addEventListener("click", () => {
+            obj.paths = PATHTOOLS.minimizeMovingDistanceQuick(obj.paths)
+            draw(obj.paths, "green", 2, 5, false, true)
+        })
 
 
 
-            })
-
-
-
-
+        readAndProcessSVG("./test.svg")
 
 
 

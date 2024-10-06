@@ -4,7 +4,7 @@
 // a line=  [points]  - an array of points, first point is start, last point in the array is the end of the line...
 // a path: a struct containing a line (a points array) and other stuff such as color, original svg element tag etc.
 
-import { LOOP, dot } from "./arraytools.js";
+import { LOOP, dot, dist } from "./arraytools.js";
 
 export let
 
@@ -33,25 +33,6 @@ export let
             paths[i].lastPoint = paths[i].points[paths[i].points.length - 1];
         });
     },
-
-
-    /**
-     * Calculates the total length of all paths in the provided path array.
-     *
-     * @param {Array} pathData - An array of path objects. Each path object should have a 'points' property which is an array of points.
-     * @returns {Object} An object containing drawLength, moveLength, and points count.
-     */
-    pathLength = pathData => {
-        getFirstLast(pathData);
-        let drawLength = 0, moveLength = 0, pointCount = 0;
-        for (let i = 0; i < pathData.length; i++) {
-            pointCount += pathData[i].points.length;
-            drawLength += lineLength(pathData[i].points);
-            if (i > 0) moveLength += dist(pathData[i].firstPoint, pathData[i - 1].lastPoint);
-        }
-        return { drawLength, moveLength, points: pointCount };
-    },
-
 
     /**
      * Calculates the distance between a point and a line segment.
@@ -99,4 +80,106 @@ export let
         var simplifiedPoints = simplifySection(0, points.length - 1);
         simplifiedPoints.push(points[points.length - 1]); // Adding the last point
         return simplifiedPoints;
-    };
+    },
+
+    /**
+     * Splits paths into sub-paths based on null points.
+     *  the d attribute is unchanged, this means the points array and the d attributes are no longer the same.  
+     *
+     * @param {Array} pathArray - An array of path objects, each containing a 'points' array.
+     * @returns {Array} - An array of path objects, each representing a sub-path.
+     */
+    splitPaths = pathArray => {
+        let result = [];
+        pathArray.forEach(path => {
+            let points = path.points;
+            let currentPoints = []; // To store the current sub-path
+            points.forEach(point => {
+                if (point === null) {
+                    if (currentPoints.length > 0) {
+                        result.push({ ...path, points: currentPoints }); // Push the current sub-path
+                    }
+                    currentPoints = []; // Reset for the next sub-path
+                } else {
+                    currentPoints.push(point); // Add point to the current sub-path
+                }
+            });
+            if (currentPoints.length > 0) result.push({ ...path, points: currentPoints });
+
+        });
+        return result;
+    },
+
+    /**
+        * Calculates the total length of all paths in the provided path array.
+        *
+        * @param {Array} pathData - An array of path objects. Each path object should have a 'points' property which is an array of points.
+        * @returns {Object} An object containing drawLength, moveLength, and points count.
+        */
+    pathLength = pathData => {
+        getFirstLast(pathData);
+        let drawLength = 0, moveLength = 0, pointCount = 0;
+        for (let i = 0; i < pathData.length; i++) {
+            pointCount += pathData[i].points.length;
+            drawLength += lineLength(pathData[i].points);
+            if (i > 0) moveLength += dist(pathData[i].firstPoint, pathData[i - 1].lastPoint);
+        }
+        return { drawLength, moveLength, points: pointCount };
+    },
+
+    /**
+     * Finds the index in the path array that is closest to the given point.
+     * 
+     * This function is used in reducing non-moving distance. It finds the index in the path array that is closest to the given point.
+     * 
+     * @param {Array} pathArray - An array of paths, each path containing `firstpoint` and `lastpoint` properties.
+     * @param {Array} point - The point to which the closest path index is to be found. The point is represented as an array [x, y].
+     * @param {number} [startindex=0] - The index from which to start searching in the path array.
+     * @returns {Object} An object containing:
+     *   - `bestIndex` (number): The index of the path that is closest to the point.
+     *   - `inverse` (boolean): A boolean indicating if the point is closer to the end (`true`) or the start (`false`) of the path.
+     */
+    findClosestIndex_to_Point = (pathArray, point, startindex = 0) => {
+        let d = 1e10, inverse = false, bestIndex = 0
+        for (let i = startindex; i < pathArray.length; i++) {
+            let d_end = dist(point, pathArray[i].lastPoint), d_start = dist(point, pathArray[i].firstPoint)
+            if (d_end < d) { d = d_end; bestIndex = i; inverse = true }   // endpoint is closer
+            if (d_start < d) { d = d_start; bestIndex = i; inverse = false } // startpoint is closer
+        }
+        return { bestIndex, inverse }
+    },
+
+    /**
+     * Optimizes the order of paths in the given array to minimize the moving distance. simple version
+     *
+     * @param {Array} pathArray - An array of paths, where each path is an object containing points.
+     * @param {Array} [currentPoint=[0, 0]] - The starting point for the optimization.
+     *
+     * @returns {Array} - The optimized array of paths.
+     *
+     */
+    minimizeMovingDistanceQuick =  (pathArray, currentPoint = [0, 0], callBack = null) => {
+        let getNonMovingLength = _ => {
+            let nonMovingLength = 0;
+            for (let i = 1; i < pathArray.length; i++) {
+                nonMovingLength += dist(pathArray[i].firstPoint, pathArray[i - 1].lastPoint);
+            }
+            return nonMovingLength;
+        }
+        // first step, simply find the closest path to the starting point and swap paths or reverse the paths
+        let deepCopy = arr => arr.map(path => ({ ...path, points: [...path.points] }));
+        let startingLength = getNonMovingLength();
+        let _temp = deepCopy(pathArray); // copy the array
+        for (let i = 0; i < pathArray.length; i++) {
+            let closestPath = findClosestIndex_to_Point(pathArray, currentPoint, i);
+            if (closestPath.inverse) pathArray[closestPath.bestIndex].points.reverse();
+            [pathArray[i], pathArray[closestPath.bestIndex]] = [pathArray[closestPath.bestIndex], pathArray[i]];  // swap paths
+            currentPoint = pathArray[i].lastPoint;
+        }
+        if (startingLength < getNonMovingLength()) {
+            pathArray = _temp; // revert the changes  
+        }
+        return pathArray
+    }
+
+
