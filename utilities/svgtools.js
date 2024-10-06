@@ -313,9 +313,26 @@ export let
             }
         });
         return points;
+    },
+
+    //=====================================================================================================
+    // converts a path object to an SVG string
+    objecttoSVG = (obj) => {
+        let svgDoc = document.implementation.createDocument('http://www.w3.org/2000/svg', 'svg', null);
+        let svgRoot = svgDoc.documentElement;
+        // copy all properties of object except path array as attributes
+        for (let p in obj) if (p != 'paths') svgRoot.setAttribute(p, obj[p]);   
+        
+        obj.paths.map(p => {
+            let pg = CreateSVGElement("path");
+            for (let a in p) if (a != 'd') pg.setAttribute(a, p[a]);   
+            pg.setAttribute('d', "M" + p.points.map(e => `${e.x},${e.y}`).join("L"));
+            svgRoot.appendChild(pg);
+        });
+        return Doc2SVG(svgDoc);
     }
 
-   
+
 
 
 

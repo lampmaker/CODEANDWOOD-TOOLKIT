@@ -30,6 +30,7 @@
     <input type="file" id="fileInput" accept=".svg">
     <button id="simplify">Simplify</button>
     <button id="optimize">Optimize</button>
+    <button id="save">Save</button>
 
     <div id="main">
         <img id="svgImage" />
@@ -163,7 +164,16 @@
             draw(obj.paths, "green", 2, 5, false, true)
         })
 
+        document.querySelector("#save").addEventListener("click", () => {
+            let svg = SVGTOOLS.objecttoSVG(obj)  // svg string
+            let blob = new Blob([svg], { type: "image/svg+xml" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = "test.svg";
+            a.click();
 
+        })  
 
         readAndProcessSVG("./test.svg")
 
