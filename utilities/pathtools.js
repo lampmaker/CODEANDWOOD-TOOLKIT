@@ -176,9 +176,11 @@ export let
             [pathArray[i], pathArray[closestPath.bestIndex]] = [pathArray[closestPath.bestIndex], pathArray[i]];  // swap paths
             currentPoint = pathArray[i].lastPoint;
         }
-        if (startingLength < getNonMovingLength()) {
+        let newLength = getNonMovingLength();
+        if (startingLength < newLength) {
             pathArray = _temp; // revert the changes  
         }
+        console.log("minimizeMovingDistanceQuick: ", newLength)
         return pathArray
     }
 
