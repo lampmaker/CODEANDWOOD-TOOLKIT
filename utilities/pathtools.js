@@ -180,7 +180,7 @@ export let
         if (startingLength < newLength) {
             pathArray = _temp; // revert the changes  
         }
-        console.log("minimizeMovingDistanceQuick: ", newLength)
+        console.log("minimizeMovingDistanceQuick: ", startingLength,newLength)
         return pathArray
     }
 

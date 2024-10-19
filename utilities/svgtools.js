@@ -2,337 +2,270 @@
 collection of tools for creating and modifying SVGS
 */
 
-let
-    parser = new DOMParser(), serializer = new XMLSerializer(),
 
-
-    // Function to get the float value of an attribute, with a default value if not present
-    attrFloat = (el, attr, defaultVal = 0) => parseFloat(el.getAttribute(attr)) || defaultVal,
-    attrGet = (el, attr) => el.getAttribute(attr) || ''
-
-import { dist } from "./arraytools.js";
-import { distanceToLineSegment } from "./pathtools.js";
-
+import *as PATHTOOLS from "./pathtools.js";
+import * as ARRAYTOOLS from "./arraytools.js"
 let { sin, cos, pow, asin, acos, atan, atan2, tan, PI, max, min, sqrt, abs } = Math
-
-
 export let
-    //================================================================================================
+    //================================================================================================    
     // convert SVG strings to DOM element and back
+    parser = new DOMParser(), serializer = new XMLSerializer(),
     SVG2Doc = (svgData) => parser.parseFromString(svgData, 'image/svg+xml').documentElement,
     Doc2SVG = (svgDoc) => serializer.serializeToString(svgDoc),
     //================================================================================================
     // create a new SVG element
     CreateSVGElement = (tag) => document.createElementNS("http://www.w3.org/2000/svg", tag),
     //================================================================================================
-    CopyObject = (obj) => JSON.parse(JSON.stringify(obj)),
-    listAttributes = (element) => {
-        let result = `Element: ${element.tagName}, Attributes:`;
-        Array.from(element.attributes).forEach(attr => result += `${attr.name} = ${attr.value} ; `)
-        return result
+    /**
+     * Converts an SVG element to a JavaScript object representation.
+     * The resulting object contains the type of the element, its attributes, and its children.
+     * Each child is recursively converted to an object as well.
+     * 
+     * @param {Element} element - The SVG element to convert.
+     * @param {Object} Dictionary - A dictionary to store the converted elements by their unique IDs.
+     * @returns {Object} - The JavaScript object representation of the SVG element.
+     */
+    svgToObject = (element, Dictionary) => {
+        let id = "svg" + Math.random().toString(36).substr(2, 9);
+        let R = {
+            type: element.tagName,
+            attributes: {
+                idid: id, ...[...element.attributes].reduce((attrs, attr) => ({
+                    ...attrs,
+                    [attr.name]: attr.value
+                }), {})
+            },
+            children: [...element.childNodes]
+                .filter(node => node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()))
+                .map(node =>
+                    node.nodeType === Node.ELEMENT_NODE
+                        ? svgToObject(node, Dictionary)
+                        : { type: 'text', content: node.nodeValue.trim() }
+                )
+        };
+        Dictionary[id] = R;
+        return R;
     },
-    getAttributes = (element) => {
-        let result = {}
-        Array.from(element.attributes).forEach(attr => result[attr.name] = attr.value)
-        return result
+    objectToSvg = (obj) => {
+        const element = CreateSVGElement(obj.type);
+        Object.entries(obj.attributes).forEach(([name, value]) => element.setAttribute(name, value));
+        obj.children.forEach(child => {
+            const childNode = child.type === 'text' ? document.createTextNode(child.content) : objectToSvg(child);
+            element.appendChild(childNode);
+        });
+        return element;
     },
-
     //================================================================================================
-    // copy the attributes from one element to another. only copy the attributes that are in the allowlist or copy all if allowlist is null
-    copySVGAttributes = (sourceElement, targetElement, allowlist = null) => {
-        Array.from(sourceElement.attributes).forEach(attr => {
-
-            if ((!allowlist || allowlist.includes(attr.name)) && !targetElement.hasAttribute(attr.name)) {
-                targetElement.setAttribute(attr.name, attr.value);
-            }
-        });
+    // Set the canvas dimensions.  Q.page_width and Q.page_height are the dimensions of the paper in mm 
+    scaleCanvas = (Q, c, margin = [300, 100]) => {
+        let maxS = [window.innerWidth - margin.x, window.innerHeight - margin.y]       // max dimeinsions for the canvas
+        let scale = min(...maxS.div([Q.page_width, Q.page_height]))         // scale to fit the canvas
+        let wh = { width: Q.page_width * scale + "px", height: Q.page_height * scale + "px" }    // canvas size in the document
+        if (!c) return;  // Stop further execution if the canvases are not found
+        Object.assign(c.style, wh)            // canvas size in the document
+        wh = { width: Q.page_width * Q.canvasResolution, height: Q.page_height * Q.canvasResolution }     // canvas size in pixels
+        if (c.width !== wh.width || c.height !== wh.height) Object.assign(c, wh)
     },
-    //========================================================================================================
-    // recursively flatten all group elements. 
-    // copies the group attributes (e.g., stroke, fill) to individual elements unless they override it
-    flattenGroups = (element) => {
-        let flattened = [];
-        element.childNodes.forEach(child => {
-            if (child.nodeType === 1) { // Element nodes only
-                if (child.tagName === 'g') {
-                    flattened = flattened.concat(flattenGroups(child)); // Recurse for nested groups
-                } else {
-                    if (element.tagName !== 'svg') copySVGAttributes(element, child)
-                    flattened.push(child); // Non-group elements are added directly
+    //======================================================================================================================
+    // draws the SVG on the canvas, taking into account the scaling and offset parameters.
+    // first, convert to paper coordinates, then to the canvas coordinates
+    imageSize = {         // in paper coordinates
+        wh: [0, 0],       // width,height                    
+        left: [0, 0],   // center
+        scale: 1,
+        resolution: 1
+    },
+    // convert world coordinates to canvas coordinates taken into account the scaling and offset
+    worldToCanvas = (p) => {
+        let p1 = p.mul(imageSize.scale)
+        p1 = p1.add(imageSize.left)
+        p1 = p1.mul(imageSize.resolution)
+        return p1
+    },
+    //======================================================================================================================
+    // draw the SVG on the canvas
+    // first, convert to paper coordinates, then to the canvas coordinates
+    // the Q object contains the parameters for the drawing, such as the page dimensions, the scale, and the offset
+    // the canvas is the canvas element to draw on
+    // the SVG is the SVG element to draw
+    drawSVGtoCanvas = (svgdoc, ctx, Q) => {
+        return new Promise((resolve, reject) => {
+            let img = new Image();
+            let imageLoaded = false;
+            const timeout = 5000; // 5 seconds timeout
+            const timer = setTimeout(() => {
+                if (!imageLoaded) {
+                    reject("Image load timed out");
                 }
-            }
+            }, timeout);
+            img.onload = function () {
+                clearTimeout(timer); // clear timeout on success
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                let width = img.width, height = img.height;
+                let scale = min(Q.page_width / width, Q.page_height / height); // scale to fit the paper    
+                let svgwidth = svgdoc.getAttribute("width"), svgheight = svgdoc.getAttribute("height");
+                if (svgwidth.includes("mm")) { width = parseFloat(svgwidth); height = parseFloat(svgheight); scale = 1; }
+                // if dimensions are in mm, use the image dimensions
+                scale *= Q.scale; // apply the user scale factor                          
+                imageSize.scale = scale;
+                imageSize.resolution = Q.canvasResolution
+                imageSize.wh = [width, height].map(dim => dim * scale);
+                imageSize.left = [Q.page_width * (Q.offsetX * Q.scale + .5) - width * scale / 2, Q.page_height * (Q.offsetY * Q.scale + .5) - height * scale / 2];
+                // draw the image, scale to canvas size but keep aspect ratio.
+                ctx.drawImage(img, ...imageSize.left.map(val => val * Q.canvasResolution), ...imageSize.wh.map(val => val * Q.canvasResolution));
+                imageLoaded = true;
+                resolve(); // resolve the promise
+            };
+            img.src = "data:image/svg+xml," + encodeURIComponent(Doc2SVG(svgdoc));
         });
-        return flattened;
     },
-    //==================================================================================
-    // convert an SVG element to a path element
-    // copies the attributes if they are in the allowlist.
-    elementToPathObject = el => {
+
+    //======================================================================================================================
+    // this function converts all drawing elements in the object to paths.
+    convertToPaths = obj => {
         let str = "";
-        switch (el.tagName) {
+        switch (obj.type) {
+            case 'svg':
+            case 'g':
+                // Recursively convert children for 'svg' and 'g' elements
+                obj.children = obj.children.map(child => convertToPaths(child));
+                return obj;
             case 'path':
-                str = el.getAttribute('d');  // For path, just return the existing 'd' attribute
-                break;
+                return obj;  // Paths already have a 'd' attribute
             case 'rect':
-                str = `M${attrFloat(el, 'x')},${attrFloat(el, 'y')} 
-                   L${attrFloat(el, 'x') + attrFloat(el, 'width')},${attrFloat(el, 'y')} 
-                   L${attrFloat(el, 'x') + attrFloat(el, 'width')},${attrFloat(el, 'y') + attrFloat(el, 'height')} 
-                   L${attrFloat(el, 'x')},${attrFloat(el, 'y') + attrFloat(el, 'height')} Z`;
+                // Ensure numeric conversion for dimensions
+                const x = parseFloat(obj.attributes.x) || 0;
+                const y = parseFloat(obj.attributes.y) || 0;
+                const width = parseFloat(obj.attributes.width) || 0;
+                const height = parseFloat(obj.attributes.height) || 0;
+                str = `M${x},${y} L${x + width},${y}  L${x + width},${y + height} L${x},${y + height} Z`;
                 break;
             case 'circle':
-                const cx = attrFloat(el, 'cx'), cy = attrFloat(el, 'cy'), r = attrFloat(el, 'r');
-                str = `M${cx - r},${cy} 
-                       A${r},${r} 0 1,1 ${cx + r},${cy} 
-                       A${r},${r} 0 1,1 ${cx - r},${cy} Z`;  // Corrected large arc flag
+                const cx = parseFloat(obj.attributes.cx) || 0;
+                const cy = parseFloat(obj.attributes.cy) || 0;
+                const r = parseFloat(obj.attributes.r) || 0;
+                str = `M${cx - r},${cy} A${r},${r} 0 1,1 ${cx + r},${cy} A${r},${r} 0 1,1 ${cx - r},${cy} Z`;
                 break;
             case 'ellipse':
-                const ex = attrFloat(el, 'cx'), ey = attrFloat(el, 'cy'), rx = attrFloat(el, 'rx'), ry = attrFloat(el, 'ry');
-                str = `M${ex - rx},${ey} 
-                       A${rx},${ry} 0 1,1 ${ex + rx},${ey} 
-                       A${rx},${ry} 0 1,1 ${ex - rx},${ey} Z`;  // Corrected large arc flag
+                const ex = parseFloat(obj.attributes.cx) || 0;
+                const ey = parseFloat(obj.attributes.cy) || 0;
+                const rx = parseFloat(obj.attributes.rx) || 0;
+                const ry = parseFloat(obj.attributes.ry) || 0;
+                str = `M${ex - rx},${ey} A${rx},${ry} 0 1,1 ${ex + rx},${ey} A${rx},${ry} 0 1,1 ${ex - rx},${ey} Z`;
                 break;
             case 'line':
-                str = `M${attrFloat(el, 'x1')},${attrFloat(el, 'y1')} 
-                   L${attrFloat(el, 'x2')},${attrFloat(el, 'y2')}`;
+                const x1 = parseFloat(obj.attributes.x1) || 0;
+                const y1 = parseFloat(obj.attributes.y1) || 0;
+                const x2 = parseFloat(obj.attributes.x2) || 0;
+                const y2 = parseFloat(obj.attributes.y2) || 0;
+                str = `M${x1},${y1} L${x2},${y2}`;
                 break;
             case 'polygon':
             case 'polyline':
-                const points = el.getAttribute('points').trim().split(/\s+|,/);
+                const points = obj.attributes.points.trim().split(/\s+|,/);
                 let pathData = `M${points[0]},${points[1]}`;
-                for (let i = 2; i < points.length; i += 2) {
-                    pathData += ` L${points[i]},${points[i + 1]}`;
-                }
-                str = el.tagName === 'polygon' ? pathData + ' Z' : pathData;
+                for (let i = 2; i < points.length; i += 2) pathData += ` L${points[i]},${points[i + 1]}`;
+                // Use 'obj.type' to check for 'polygon'
+                str = obj.type === 'polygon' ? pathData + ' Z' : pathData;
                 break;
             default:
-                return null; // Unsupported element
+                return obj;  // Return original object for unsupported elements
         }
-        console.log("Converting Element " + el.tagName + " -> " + str)
-        // Create a new path element
-        const path = getAttributes(el)
-        path.d = str;
-        return path;
+        // Set the type to 'path' and the 'd' attribute
+        obj.type = 'path';
+        obj.attributes.d = str;
+        return obj;
     },
-    //------------------------------------------------------------------------------------------------
-    // Breaks down the d attribute into individual commands and their parameters
-    // multiple combined elements will get split  (l 10,3,5,5)=> l 10,3  l 5,5 
-    // returns an array with all commands and their values.
-    parsePath = d => {
-        const commands = d.match(/[a-zA-Z][^a-zA-Z]*/g).map(cmd => cmd.trim());
-        let results = []
-        commands.map(cmd => {
-            const type = cmd[0];
-            const values = cmd.slice(1).trim().split(/[\s,]+/).map(parseFloat);
-            // Split the values array into individual commands
-            let chunkSize = 0, cmdlength = { mlt: 2, qsc: 4, c: 6, hv: 1, a: 7 };
-            for (let c in cmdlength) if (c.includes(type.toLowerCase())) chunkSize = cmdlength[c];
-            for (let i = 0; i < values.length; i += chunkSize) {
-                results.push({ type, values: values.slice(i, i + chunkSize) });
-                if (chunkSize == 0) break;
-            }
+    //======================================================================================================================
+    // add point arrays to all path elements
+    // need to convert the object back to svg so all transformations etc are handled correctly
+    //======================================================================================================================            
+    addPointArrays = (obj, Dictionary, maxDistance = 5) => {
+        let svg = objectToSvg(obj);
+        document.body.appendChild(svg);     // need to conect to dom for proper CTM calculations
+        let paths = svg.querySelectorAll("path");
+        let inverseMatrix = svg.getCTM().inverse();     // to correct for all browser transformations
+        paths.forEach(path => {
+            let lines = path2pointarray(path, inverseMatrix,maxDistance);
+            let ID = path.getAttribute("idid");
+            Dictionary[ID].lines = lines
+
         });
-        return results;
+        document.body.removeChild(svg);
     },
-    mid = (a, b) => a.add(b).mul(0.5),
-
-
-    //------------------------------------------------------------------------------------------------
-    approxCubicBezier = (P1, P2, P3, P4, maxDist) => {
-        // Calculate distances from control points P2 and P3 to the line P1-P4
-        const distP2 = distanceToLineSegment(P2, P1, P4);
-        const distP3 = distanceToLineSegment(P3, P1, P4);
-        // Check the maximum deviation
-        const maxDeviation = max(distP2, distP3);
-        // If the maximum deviation is greater than the threshold, subdivide the curve
-        if (maxDeviation > maxDist) {
-            const PA = mid(P1, P2); // Midpoint of P1 and P2
-            const PB = mid(P2, P3); // Midpoint of P2 and P3
-            const PC = mid(P3, P4); // Midpoint of P3 and P4
-            // Recursively subdivide the curve into two halves
-            return [
-                ...approxCubicBezier(P1, PA, mid(PA, PB), mid(mid(PA, PB), mid(PB, PC)), maxDist), // First half
-                ...approxCubicBezier(mid(mid(PA, PB), mid(PB, PC)), mid(PB, PC), PC, P4, maxDist)  // Second half
-            ];
+    //======================================================================================================================
+    // convert a path element to an array of points
+    //  splits the path into segments at the M or m
+    // then adds points to the array at a distance of maxDistance
+    // when the length of a segment is exceeded,t eh last point (at execatly the length of the segment) is added to the array
+    // and the first point of the next segment is added to the array, with a small offset to avoid duplucates
+    // at the end of the path, the last point at exactly the path length is added to the array
+    //======================================================================================================================
+    path2pointarray = (p, inverseMatrix,maxDistance) => {        
+        let point, points = [], lines = [];
+        let add = (p) => {
+            p = p.matrixTransform(matrix);
+            p = p.matrixTransform(inverseMatrix);
+            points.push([p.x, p.y])
         }
-        return [P1, P4];
-    },
-    //------------------------------------------------------------------------------------------------
-    approxQuadBezier = (P1, P2, P3, maxDist) => {
-        const P1P2 = mid(P1, P2); // Midpoint between P1 and P2
-        const P2P3 = mid(P2, P3); // Midpoint between P2 and P3
-        const curveMid = mid(P1P2, P2P3); // Midpoint on the curve
-
-        // Check the deviation of the control point (P2) from the straight line P1 to P3
-        if (distanceToLineSegment(P2, P1, P3) > maxDist) {
-            // Subdivide the curve if the deviation exceeds the maxDist threshold
-            return [
-                ...approxQuadBezier(P1, P1P2, curveMid, maxDist), // First half of the curve
-                ...approxQuadBezier(curveMid, P2P3, P3, maxDist)  // Second half of the curve
-            ];
-        }
-
-        return [P3]; // If the deviation is acceptable, return the final point P3
-    },
-    //------------------------------------------------------------------------------------------------
-    approxArc = (P1, P2, R, xAxisRotation, largeArcFlag, sweepFlag, maxDistance) => {
-        const rad = (deg) => (deg * PI) / 180;
-        const [cosRot, sinRot] = [cos(rad(xAxisRotation)), sin(rad(xAxisRotation))];
-
-        // Step 1: Calculate transformed P1' and P2'
-        const P1Prime = [
-            cosRot * (P1[0] - P2[0]) / 2 + sinRot * (P1[1] - P2[1]) / 2,
-            -sinRot * (P1[0] - P2[0]) / 2 + cosRot * (P1[1] - P2[1]) / 2
-        ];
-
-        // Step 2: Ensure radii satisfy the geometric constraint
-        let radiiScale = (P1Prime[0] ** 2) / (R[0] ** 2) + (P1Prime[1] ** 2) / (R[1] ** 2);
-        if (radiiScale > 1) R = [R[0] * sqrt(radiiScale), R[1] * sqrt(radiiScale)];
-
-        // Step 3: Calculate the center of the ellipse
-        const signFactor = (largeArcFlag !== sweepFlag) ? 1 : -1;
-        const factor = signFactor * sqrt(
-            ((R[0] ** 2) * (R[1] ** 2) - (R[0] ** 2) * (P1Prime[1] ** 2) - (R[1] ** 2) * (P1Prime[0] ** 2)) /
-            ((R[0] ** 2) * (P1Prime[1] ** 2) + (R[1] ** 2) * (P1Prime[0] ** 2))
-        );
-
-        const centerPrime = [(factor * R[0] * P1Prime[1]) / R[1], -(factor * R[1] * P1Prime[0]) / R[0]];
-        const center = [
-            cosRot * centerPrime[0] - sinRot * centerPrime[1] + (P1[0] + P2[0]) / 2,
-            sinRot * centerPrime[0] + cosRot * centerPrime[1] + (P1[1] + P2[1]) / 2
-        ];
-
-        // Step 4: Calculate start and end angles
-        const startAngle = atan2((P1[1] - center[1]) / R[1], (P1[0] - center[0]) / R[0]);
-        const endAngle = atan2((P2[1] - center[1]) / R[1], (P2[0] - center[0]) / R[0]);
-
-        // Step 5: Adjust the sweep angle based on flags
-        let sweepAngle = endAngle - startAngle;
-        sweepAngle = (sweepFlag ? (sweepAngle < 0 ? sweepAngle + 2 * PI : sweepAngle) : (sweepAngle > 0 ? sweepAngle - 2 * PI : sweepAngle));
-
-        // Adjust for largeArcFlag
-        if (largeArcFlag) {
-            if (abs(sweepAngle) < PI) sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * PI - abs(sweepAngle));
-        } else {
-            if (abs(sweepAngle) > PI) sweepAngle = (sweepAngle > 0 ? 1 : -1) * (2 * PI - abs(sweepAngle));
-        }
-
-        // Helper function to calculate a point on the arc for a given angle
-        const pointOnArc = (angle) => [center.x + cos(angle) * R.x, center.y + sin(angle) * R.y];
-
-        // Helper function to recursively refine the arc approximation
-        const refineArc = (startAngle, endAngle, maxDistance) => {
-            const midAngle = (startAngle + endAngle) / 2;
-            const start = pointOnArc(startAngle);
-            const midPoint = pointOnArc(midAngle);
-            const end = pointOnArc(endAngle);
-
-            // Calculate the deviation and subdivide if needed
-            const midLine = mid(start, end);
-            if (dist(midPoint, midLine) > maxDistance) {
-                return [
-                    ...refineArc(startAngle, midAngle, maxDistance),
-                    ...refineArc(midAngle, endAngle, maxDistance)
-                ];
+        let matrix = p.getCTM()
+        const originalPath = p.getAttribute("d");
+        const segments = originalPath.split(/(?=[Mm])/);      // split the path into segments at the M or m
+        const pathLength = p.getTotalLength();
+        const numPoints = Math.floor(pathLength / maxDistance)
+        maxDistance = pathLength / numPoints;
+        // create a copy of the element
+        let p2 = p.cloneNode(true);
+        let cumulativeSegment = segments[0];
+        p2.setAttribute("d", cumulativeSegment);
+        let currentSegmentLength = p2.getTotalLength();
+        add(p2.getPointAtLength(0));
+        for (let j = 0; j <= pathLength; j += maxDistance) {
+            if (j > currentSegmentLength && segments.length > 0) {
+                point = p.getPointAtLength(currentSegmentLength)
+                add(point)
+                lines.push(points);        // store the previous segment's points
+                points = [];               // reset for the next segment
+                cumulativeSegment += segments.shift(); // add the next segment
+                p2.setAttribute("d", cumulativeSegment);
+                point = p.getPointAtLength(currentSegmentLength + .001)     // get the first point of the new segment
+                add(point)
+                currentSegmentLength = p2.getTotalLength();             // update the length for the new segment                            
             }
-            return [start, end];
-        };
-
-        // Start the approximation
-        return refineArc(startAngle, startAngle + sweepAngle, maxDistance);
+            point = p.getPointAtLength(j);
+            add(point)
+        }
+        point = p.getPointAtLength(pathLength);
+        add(point)
+        if (points.length > 0) lines.push(points);
+        p.setAttribute("d", originalPath); // restore the original path
+        return lines
     },
+    //======================================================================================================================
+    //  simplify the lines. for all objectyds in the Dictionary that contain them
+    simplifyLines = (Dictionary, tolerance) => {
+        Object.values(Dictionary).forEach(obj => {
+            if (obj.lines) {
+                obj.lines = obj.lines.map(line => PATHTOOLS.simplifyPath(line, tolerance)
+                )
 
-    //=====================================================================================================
-    // converts a  path ("the 'd' string) into an array of points.
-    // maxDistance is the maximum error allowed in the approximation, the returned straight lines may not deviate more than this from the curve
-    // returns an array of points
-    // if a move command is encountered, a null is inserted in the array to separate the subpaths for later processing
-    // the points are returned as an array of [x,y] arrays
-    pathtoPointArray = (d, maxDistance) => {
-        const commands = parsePath(d);
-        let points = [];
-        let prevPoint = [0, 0];  // previous point
-        let firstPoint = [0, 0]  // first point, for z commands. 
-
-        commands.forEach(cmd => {
-            let offset = (cmd.type == cmd.type.toLowerCase()) ? prevPoint : [0, 0]
-            let addPoint = P => { points.push(P); prevPoint = P; }
-            let endPoint, cp1, cp2, cp3;
-            switch (cmd.type.toLowerCase()) {
-                case 'm': //  Move to
-                    if (points.length > 0) points.push(null);
-                    addPoint(cmd.values.xy.add(offset))
-                    firstPoint = prevPoint;
-                    break;
-                case 'l':  // line to
-                    addPoint(cmd.values.xy.add(offset))
-                    break;
-                case 'v': // Vertical line to                                        
-                    addPoint([0, cmd.values[0]].add(offset))
-                    break;
-                case 'h': //Horizontal line to
-                    addPoint([cmd.values[0], 0].add(offset));
-                    break;
-                case 'q': // Handle multiple quadratic Bézier points
-                    const controlPoint = cmd.values.xy.add(offset);  //element 0,1 in array
-                    endPoint = cmd.values.zw.add(offset);    // element 2,3
-                    points.push(...approxQuadBezier(prevPoint, controlPoint, endPoint, maxDistance));
-                    prevPoint = endPoint;
-                    break;
-                case 'c': // cubic bezier
-                    cp1 = cmd.values.slice(0, 2).add(offset);  // elements 0,1 in array
-                    cp2 = cmd.values.slice(2, 4).add(offset);  // elements 2,3
-                    endPoint = cmd.values.slice(4, 6).add(offset);  // elements 4,5
-                    points.push(...approxCubicBezier(prevPoint, cp1, cp2, endPoint, maxDistance));
-                    prevPoint = endPoint;
-                    break;
-                case 's': // Smooth cubic Bézier
-                    console.error('smooth cubic bezier is still untested');
-                    const prevControlPoint = points[points.length - 2] || prevPoint; // Fallback to prevPoint if no previous control point
-                    const reflection = prevPoint.mul(2).sub(prevControlPoint); // Reflect the previous control point
-                    cp2 = cmd.values.slice(0, 2).add(prevPoint);  // elements 0,1 in array
-                    cp3 = cmd.values.slice(2, 4).add(prevPoint);  // elements 2,3
-                    points.push(...approxCubicBezier(prevPoint, reflection, cp2, cp3, maxDistance));
-                    prevPoint = cp3;
-                    break;
-                case 'a': // Arc command
-
-                    const radius = cmd.values.xy
-                    const xAxisRotation = cmd.values.z
-                    const largeArcFlag = cmd.values.w
-                    const sweepFlag = cmd.values[4]
-                    endPoint = cmd.values.slice(5, 7).add(offset)
-                    points.push(...approxArc(prevPoint, endPoint, radius, xAxisRotation, largeArcFlag, sweepFlag, maxDistance));
-                    prevPoint = endPoint
-                    break;
-                case 'z': // Close path
-                    points.push(firstPoint)
-                    break;
-                default:
-                    throw cmd.type + " IS NOT YET IMPLEMENTED"
-                    break;
             }
-        });
-        return points;
+        })
     },
-
-    //=====================================================================================================
-    // converts a path object to an SVG string
-    objecttoSVG = (obj) => {
-        let svgDoc = document.implementation.createDocument('http://www.w3.org/2000/svg', 'svg', null);
-        let svgRoot = svgDoc.documentElement;
-        // copy all properties of object except path array as attributes
-        for (let p in obj) if (p != 'paths') svgRoot.setAttribute(p, obj[p]);   
-        
-        obj.paths.map(p => {
-            let pg = CreateSVGElement("path");
-            for (let a in p) if (a != 'd') pg.setAttribute(a, p[a]);   
-            pg.setAttribute('d', "M" + p.points.map(e => `${e.x},${e.y}`).join("L"));
-            svgRoot.appendChild(pg);
-        });
-        return Doc2SVG(svgDoc);
+    //======================================================================================================================
+    // convert the lines to a path array where each path is an object {attributes, points:[], firstPoint,LastPoint}                
+    convertToPathArray = (Dictionary) => {
+        let PathArray = []
+        Object.values(Dictionary).forEach(obj => {
+            if (obj.lines) {
+                obj.lines.forEach(line => {
+                    let path = { points: line, firstPoint: line[0], lastPoint: line[line.length - 1], attributes: obj.attributes }
+                    PathArray.push(path)
+                })
+            }
+        })
+        return PathArray
     }
 
 
-
-
-
+export let SVGTOOLS = { SVG2Doc, svgToObject, worldToCanvas, objectToSvg, drawSVGtoCanvas, Doc2SVG, CreateSVGElement, scaleCanvas, imageSize, convertToPaths, addPointArrays, path2pointarray, simplifyLines, convertToPathArray }

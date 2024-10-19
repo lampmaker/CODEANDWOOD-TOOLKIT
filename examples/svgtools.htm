@@ -1,27 +1,6 @@
 <html>
 
 <head>
-    <style>
-        #main {
-            position: relative;
-        }
-
-        #canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            border: 2px red dashed;
-
-            z-index: 2;
-        }
-
-        img {
-            width: 800px;
-            border: 2px solid blue;
-
-            z-index: 1;
-        }
-    </style>
 </head>
 
 <body style="font-family: Arial, Helvetica, sans-serif;">
@@ -29,151 +8,161 @@
 
     <input type="file" id="fileInput" accept=".svg">
     <button id="simplify">Simplify</button>
-    <button id="optimize">Optimize</button>
-    <button id="save">Save</button>
+    <button id="optimize">Optimize order</button>
+ 
 
     <div id="main">
-        <img id="svgImage" />
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas" style=" margin:10px;  position: absolute; z-index: -1; background-color:cornsilk;"></canvas>
+        <canvas id="canvas2" style=" margin:10px;  position: absolute; z-index: 1;"></canvas>
     </div>
 
     <script type="module">
 
         import * as ARRAYTOOLS from '../utilities/arraytools.js'
-        import * as SVGTOOLS from '../utilities/svgtools.js';
+        import { SVGTOOLS } from '../utilities/svgtools.js';
         import * as PATHTOOLS from '../utilities/pathtools.js';
 
-        let obj = {};
-        let svgImage = document.querySelector("#svgImage")
-        let simplifyError = 0.1;
-        // ======================================================================================================================
-        // read  the SVG
-        function readAndProcessSVG(file) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const svgstring = e.target.result;
-                processSVG(svgstring);
-            };
+        const canvas = document.querySelector("#canvas");
+        const ctx = canvas.getContext('2d');
+        const canvas2 = document.querySelector("#canvas2");
+        const ctx2 = canvas2.getContext('2d');
 
-            if (typeof file === 'string') {
-                fetch(file)
-                    .then(response => response.text())
-                    .then(svgstring => {
-                        processSVG(svgstring);
-                    });
-            } else {
-                reader.readAsText(file);
-            }
+        let Q = {
+            page_height: 210,       // size in mm
+            page_width: 300,        // size in mm
+            canvasResolution: 10,     // scale factor for canvas in pixel/ mm 
+            offsetX: 0,              // position of the drawing within the canvas
+            offsetY: 0,              // position of the drawing within the canvas
+            scale: 1,                 // scale factor for the drawing. (1 = fit to canvas (if svg size is pixels) or 1mm = 1mm if svg size is in mm)
+            maxdist: 10         // when converting paths to points, this is the point-to-point distance. 
         }
-        // ======================================================================================================================
-        function processSVG(svgstring) {
-            obj = {};  // clear the object
-            simplifyError = 0.1; // reset 
 
-            // show the svgDoc in the image
-            const svgImage = document.querySelector("#svgImage");
+        new URLSearchParams(window.location.search).forEach((v, k) => Q[k] = v || 1);
+        window.addEventListener("resize", _ => { SVGTOOLS.scaleCanvas(Q, canvas); SVGTOOLS.scaleCanvas(Q, canvas2) })
 
-            svgImage.onload = () => {
+        let
+            { min, max } = Math,
+            Dictionary = {},       // for storing the objects
+            obj = {},
+            paths = [],         // containst an object with only the lines
+            // ======================================================================================================================
+            // read  the SVG
+            readAndProcessSVG = file => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const svgstring = e.target.result;
+                    processSVG(svgstring);
+                };
+
+                if (typeof file === 'string') {
+                    fetch(file)
+                        .then(response => response.text())
+                        .then(svgstring => {
+                            processSVG(svgstring);
+                        });
+                } else {
+                    reader.readAsText(file);
+                }
+            },
+            // ======================================================================================================================
+            drawObjects = (paths, drawCircles = true, drawNonMoving = false) => {
+                if (drawNonMoving) ctx2.beginPath();
+                paths.forEach(path => {
+                    if (drawCircles) {
+                        path.points.forEach(p1 => {
+                            let p = SVGTOOLS.worldToCanvas(p1)
+                            ctx2.beginPath();
+                            ctx2.arc(p.x, p.y, 25, 0, 2 * Math.PI);
+                            ctx2.stroke();
+                        });
+                        ctx2.stroke();
+
+                        return;
+                    }
+                    ctx2.strokeStyle = "black";
+                    ctx2.lineWidth = 5;
+                    //      ctx2.setLineDash([20, 20]);                    
+                    path.points.forEach((p1, i) => {
+                        let p = SVGTOOLS.worldToCanvas(p1)
+                        if (i === 0) {
+                            if (drawNonMoving)
+                                ctx2.lineTo(...p);
+                            else {
+                                ctx2.beginPath();
+                                ctx2.moveTo(...p);
+                            }
+                        }
+                        else
+                            ctx2.lineTo(...p);
+                    });
+                    if (!drawNonMoving) ctx2.stroke();
+
+
+                })
+                if (drawNonMoving) ctx2.stroke();
+
+            },
+
+
+            // ======================================================================================================================
+            processSVG = async svgstring => {
+                obj = {};  // clear the object
+                Dictionary = {}; // clear the dictionary
+                SVGTOOLS.scaleCanvas(Q, canvas);
+                SVGTOOLS.scaleCanvas(Q, canvas2);
+
+                // convert the string to a document object
+                console.log(`SVG string: ${svgstring.length} characters`)
                 let SVGDoc = SVGTOOLS.SVG2Doc(svgstring);
 
-                // get the main attributes of the svg and add to the object
-                Object.assign(obj, SVGTOOLS.getAttributes(SVGDoc));
+                // convert the document object to an object
+                obj = SVGTOOLS.svgToObject(SVGDoc, Dictionary);
+                console.log(`Converted the svg to an object.`, obj)
 
-                // flatten svg  
-                SVGDoc = SVGTOOLS.flattenGroups(SVGDoc);
+                // convert the object to paths                
+                obj = SVGTOOLS.convertToPaths(obj);
+                console.log(`Converted the drawing elements.`, obj)
 
-                // converting all elements to path objects, ignoring null elements
-                obj.paths = SVGDoc.map(el => SVGTOOLS.elementToPathObject(el)).filter(p => p);
+                // draw the svg object on the canvas and get the size parametres                
+                await SVGTOOLS.drawSVGtoCanvas(SVGTOOLS.objectToSvg(obj), ctx, Q);
+                console.log("Size parameters: ", SVGTOOLS.imageSize)
 
-                // create point arrays for all paths.  MaxDistance is the max deviation (smaller= more accurate)
-                obj.paths.map(path => path.points = SVGTOOLS.pathtoPointArray(path.d, .1));
+                // convert the paths to lines. these are stored in the object but also in the dictionary for easier access
+                SVGTOOLS.addPointArrays(obj, Dictionary, Q.maxdist);
+                paths = SVGTOOLS.convertToPathArray(Dictionary);
 
-                // split the paths into separate paths if any of the point are null  ( move commands)
-                obj.paths = PATHTOOLS.splitPaths(obj.paths);
-
-                // update the canvas size to match the image
-                const canvas = document.querySelector("#canvas");
-
-                // get the first and last points of each path and add to the path 
-                PATHTOOLS.getFirstLast(obj.paths)
-
-                // match the canvas dimensions
-                canvas.width = parseFloat(obj.width)
-                canvas.height = parseFloat(obj.height)
-
-                // set the canvas size to match the image
-                canvas.style.width = svgImage.clientWidth + "px";;
-                canvas.style.height = svgImage.clientHeight + "px";
-
-
-                console.log(obj)
+                // draw the lines as circles
+                ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
+                drawObjects(paths, true, false)
             }
-            // convert the svg string to a document element
-
-            svgImage.src = "data:image/svg+xml," + encodeURIComponent(svgstring);;
-
-        }
-        //===============================================================================
-        // helper function to draw a path on the canvas. 
-        let draw = (paths, strokeStyle, lineWidth, dotSize, drawing = true, nondrawing = false) => {
-
-            let ctx = canvas.getContext("2d")
-            ctx.clearRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
-
-            if (nondrawing) {
-                ctx.beginPath()
-                ctx.strokeStyle = "red"
-                paths.forEach(path => {
-                    path.points.forEach((point, i) => {
-                        if (point == null) return
-                        ctx.lineTo(point.x, point.y);
-                    })
-                })
-                ctx.stroke()
-            }
-            if (drawing) {
-                ctx.strokeStyle = strokeStyle
-                ctx.lineWidth = lineWidth
-                paths.forEach(path => {
-
-                    path.points.forEach((point, i) => {
-                        if (point == null) return
-                        ctx.beginPath()
-                        ctx.arc(point.x, point.y, dotSize, 0, 2 * Math.PI)
-                        ctx.stroke()
-                    })
-                })
-                ctx.stroke()
-            }
-        }
 
 
 
         document.querySelector("#fileInput").addEventListener("change", (e) => readAndProcessSVG(e.target.files[0]))
 
         document.querySelector("#simplify").addEventListener("click", () => {
-            obj.paths.map(path => path.points = PATHTOOLS.simplifyPath(path.points, simplifyError))
-            console.log(simplifyError)
-            simplifyError *= 2;
-            draw(obj.paths, "green", 2, 5, true, true)
+            console.log("Reduce the number of points")
+            SVGTOOLS.simplifyLines(Dictionary, .1)
+            paths = SVGTOOLS.convertToPathArray(Dictionary);
+            ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
+            drawObjects(paths, true, false)
+
         })
 
-
+        let optim = 0;
         document.querySelector("#optimize").addEventListener("click", () => {
-            obj.paths = PATHTOOLS.minimizeMovingDistanceQuick(obj.paths)
-            draw(obj.paths, "green", 2, 5, false, true)
+            if (optim > 0) {
+                console.log("Optimize the lines")
+                paths= PATHTOOLS.minimizeMovingDistanceQuick (paths,  [0, 0])            
+            }            
+            optim++
+            ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
+            drawObjects(paths, false, true)
+
+
         })
 
-        document.querySelector("#save").addEventListener("click", () => {
-            let svg = SVGTOOLS.objecttoSVG(obj)  // svg string
-            let blob = new Blob([svg], { type: "image/svg+xml" });
-            let url = URL.createObjectURL(blob);
-            let a = document.createElement("a");
-            a.href = url;
-            a.download = "test.svg";
-            a.click();
-
-        })  
+        
 
         readAndProcessSVG("./test.svg")
 
