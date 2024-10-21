@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Example</title>
+</head>
+
+<style>
+    .pane {
+        margin: 2px;
+        border: 1px solid #AAA;
+        image-rendering: pixelated;    /* for pixelated rendering */
+    }
+</style>
+<body>
+    <div id="button-bar" class="pane" style="height:40px; background-color: cornsilk;"></div>
+    <canvas id="myCanvas" class="pane" style="margin:5px;background-color: aqua;"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script type="module">
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let Q = {
+            page_width: 300,
+            page_height: 200,
+            canvasResolution: 10
+        };
+
+        let scaleCanvas = (Q, c, margin = [300, 50]) => {
+            let maxS = [window.innerWidth - margin[0], window.innerHeight - margin[1]]       // max dimeinsions for the canvas
+            let scale = Math.min(maxS[0] / Q.page_width, maxS[1] / Q.page_height)         // scale to fit the canvas
+            let wh = { width: Q.page_width * scale + "px", height: Q.page_height * scale + "px" }    // canvas size in the document
+            if (!c) return;  // Stop further execution if the canvases are not found
+            Object.assign(c.style, wh)            // canvas size in the document
+            wh = { width: Q.page_width * Q.canvasResolution, height: Q.page_height * Q.canvasResolution }     // canvas size in pixels
+            if (c.width !== wh.width || c.height !== wh.height) Object.assign(c, wh)
+        },
+            resize = _ => {
+                scaleCanvas(Q, canvas)
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'green';
+                // draw a diamond the size of the canvas
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2, 0);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.lineTo(canvas.width / 2, canvas.height);
+                ctx.lineTo(0, canvas.height / 2);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+        resize();
+
+
+              window.addEventListener('resize', resize);
+
+
+        // Example drawing
+
+
+
+
+
+        // Add GUI for Q
+        const gui = new dat.GUI();
+        gui.add(Q, 'page_width', 0, 600).onChange(resize);
+        gui.add(Q, 'page_height', 0, 400).onChange(resize);
+        gui.add(Q, 'canvasResolution', 0.1, 10).onChange(resize);
+    </script>
+</body>
+
+</html>

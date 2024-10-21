@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Example</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pane {
+            background-color: cornsilk;
+            margin: 11px;
+            border: 1px solid #AAA;
+            image-rendering: pixelated;             /* For pixelated rendering */
+            
+        }
+
+        .main {
+            width:100%;
+            height: 100%;        
+            display: flex;
+            flex-direction: row;
+        }   
+        .menuarea {
+            margin-left:0;
+            width:300px;
+            flex-shrink: 0;
+        }
+       
+
+        .container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .buttons {
+            height: 40px;
+            flex-shrink: 0;
+            margin-bottom: 0px;
+        }
+
+        .canvas {
+            height: 100px;
+            /* this is basically the minimuy height */
+            flex-grow: 1;
+            /* Takes up the remaining space */
+            object-fit: contain;
+            /* This is the key to keep the aspect ratio */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main">
+        <div class="container">
+            <div id="button-bar" class="pane buttons"></div>
+            <canvas id="myCanvas" class="pane canvas"></canvas>
+        </div>
+        <div class="pane menuarea"> </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script type="module">
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let Q = {
+            page_width: 300,
+            page_height: 200,
+            canvasResolution: 10
+        };
+
+        const resize = () => {
+            // Update the CSS variable for aspect ratio
+            document.documentElement.style.setProperty('--aspect-ratio', Q.page_width / Q.page_height);
+
+            // Set the canvas's internal drawing dimensions
+            canvas.width = Q.page_width * Q.canvasResolution;
+            canvas.height = Q.page_height * Q.canvasResolution;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Clear and redraw the canvas
+            ctx.fillStyle = "blue"
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.lineTo(0, canvas.height / 2);
+            ctx.closePath();
+            ctx.fill();
+            // draw a rectangle without fill around the size of the canvas
+            ctx.strokeStyle = 'black';
+            // line width is 1 pixel
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+
+
+        };
+
+        resize();
+
+        // window.addEventListener('resize', resize);
+
+        // Add GUI controls
+
+
+
+        const gui = new dat.GUI();
+        gui.add(Q, 'page_width', 0, 600).onChange(resize);
+        gui.add(Q, 'page_height', 0, 400).onChange(resize);
+        gui.add(Q, 'canvasResolution', 0.1, 10).onChange(resize);
+
+
+    </script>
+</body>
+
+</html>
