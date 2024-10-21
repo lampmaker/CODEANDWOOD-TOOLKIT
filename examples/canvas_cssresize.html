@@ -10,7 +10,7 @@
         body {
             margin: 0;
             font-family: Verdana, Geneva, Tahoma, sans-serif;
-            font-size:large;
+            font-size: large;
             background-color: rgb(4, 24, 43);
             color: rgb(214, 225, 255);
             /* Remove default margin */
@@ -26,8 +26,6 @@
             /* For pixelated rendering */
 
         }
-
-
 
         /*  flex styles  -------------------------------------------------------------------------------- */
         .flex-row {
@@ -55,30 +53,25 @@
 
         /*    -------------------------------------------------------------------------------- */
 
-        .main {
+        .main { /* this is the main container */
             height: 100vh;
         }
-
-        .menuarea {
+        .menuarea { /* this is the menu container */
             margin-left: 0;
             width: 500px;
         }
-
-        .container {
-            width:10px;
+        .container {    /* this is the container for the canvas and the menu */
+            width: 10px;
             height: 100%;
         }
-
-        .title {
-            display: flex; 
-            align-items: center; 
+        .title {    /* this is the title bar */
+            align-items: center;
             justify-content: center;
             overflow: hidden;
             height: 40px;
-            margin-bottom: 0px;            
+            margin-bottom: 0px;
         }
-
-        .canvas {
+        .canvas {   /* this is the canvas */
             height: 100px;
             /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
             object-fit: contain;
@@ -90,69 +83,83 @@
 <body>
     <div class="main flex-row">
         <div class="container flex-col flex">
-            <div id="button-bar" class="pane title">
-            <h2>Canvas and CSS Example</h2>
+            <div id="button-bar" class="pane title flex-row">
+                <h2>Canvas and CSS Example</h2>
             </div>
             <canvas id="myCanvas" class="pane canvas flex"></canvas>
         </div>
         <div class="pane menuarea fix"> </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+
+    
     <script type="module">
         import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
         const canvas = document.getElementById('myCanvas');
         const ctx = canvas.getContext('2d');
 
+        
+        // Set up the initial parameters. these can also be passed in the URL eg ?page_width=300&page_height=300
         let Q = {
             page_width: 300,
             page_height: 200,
             canvasResolution: 10,
-            canvasColor: "#FFAABB",
-
+            Color1: "#FF4040",
+            Color2: "#40AAFF",            
         };
+        new URLSearchParams(location.search).forEach((v, k) => Q[k] = v || 1);    // get URL parameters if any. if it has no value, it can used as a boolean and is set to 1
 
-        const resize = () => {
-            // Update the CSS variable for aspect ratio
-            document.documentElement.style.setProperty('--aspect-ratio', Q.page_width / Q.page_height);
 
-            // Set the canvas's internal drawing dimensions
-            canvas.width = Q.page_width * Q.canvasResolution;
-            canvas.height = Q.page_height * Q.canvasResolution;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Clear and redraw the canvas
-            ctx.fillStyle = "blue"
+        const draw=()=>{
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.fillStyle =  Q.Color1
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = 'red';
+            ctx.fillStyle = Q.Color2;
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, 0);
             ctx.lineTo(canvas.width, canvas.height / 2);
             ctx.lineTo(canvas.width / 2, canvas.height);
             ctx.lineTo(0, canvas.height / 2);
             ctx.closePath();
-            ctx.fill();
-            // draw a rectangle without fill around the size of the canvas
-            ctx.strokeStyle = 'black';
-            // line width is 1 pixel
-            ctx.lineWidth = 1;
+            ctx.fill();                        
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
+        }
 
+        const resize = () => {
+            // Update the CSS variable for aspect ratio
+            document.documentElement.style.setProperty('--aspect-ratio', Q.page_width / Q.page_height);
+            // Set the canvas's internal drawing dimensions
+            canvas.width = Q.page_width * Q.canvasResolution;
+            canvas.height = Q.page_height * Q.canvasResolution;
+            draw()
+            updateGuiData();
+       };
+     
+      
+        const updateGuiData=_=>{
+            Q.width = canvas.width;
+            Q.height = canvas.height;
+            // canvas width and height of the element
+            Q.W_width = canvas.clientWidth;
+            Q.W_height = canvas.clientHeight;
+            Menu.refresh();
+        }
+        
 
-        };
-
-        resize();
 
         // Add GUI controls
         //https://tweakpane.github.io/docs/quick-tour/
-        const Menu = new Pane({ title: "Settings" , container: document.querySelector('.menuarea')});
-
+        const Menu = new Pane({ title: "Settings", container: document.querySelector('.menuarea') });
+        resize()
+        window.addEventListener('resize', updateGuiData);
         let guiItems = // array with name, min, (optional)max,(optional) step (optional)
             [
                 ['page_width', 100, 600, 10],
                 ['page_height', 100, 400, 10],
                 ['canvasResolution', 0.01, 10],
-                ['canvasColor'],
+                ['Color1']       ,      
+                ['Color2']             
             ];
 
 
@@ -163,15 +170,22 @@
             Menu.addBinding(Q, name, options).on('change', resize);
         }
 
-        let btn=Menu.addButton({title: 'Reset'})
-            btn.on('click',_ => {
-                Object.assign(Q, { page_width: 300, page_height: 200, canvasResolution: 10, canvasColor: "#FFAABB" });                        
+        let btn = Menu.addButton({ title: 'Reset' })
+        btn.on('click', _ => {
+            Object.assign(Q, { page_width: 300, page_height: 200, canvasResolution: 10, canvasColor: "#FFAABB" });
             Menu.refresh();
-            }
+        }
         );
 
+
+
+        Menu.addBinding(Q,"width",{readonly:true, label:"Canvas Width ",format: (v) => v.toFixed(0),});
+        Menu.addBinding(Q,"height",{readonly:true, label:"Canvas Height ",format: (v) => v.toFixed(0),});
+        Menu.addBinding(Q,"W_width",{readonly:true, label:"Element Width ",format: (v) => v.toFixed(0),});
+        Menu.addBinding(Q,"W_height",{readonly:true, label:"Element Height ",format: (v) => v.toFixed(0),});
+
         let ME = Menu.element, MS = ME.style;
-       
+
         MS.height = '100%';
         MS.width = '100%';
         MS.borderRadius = '2px';
@@ -180,24 +194,7 @@
         MS.fontSize = '20px';
         MS.setProperty('--tp-blade-value-width', '200px');
 
-
-
-
-        /*
-        const PARAMS = {          percentage: 50,          theme: 'dark',        };
-        pane.addBinding(          PARAMS, 'percentage',          {min: 0, max: 100, step: 10}        );
-        pane.addBinding(          PARAMS, 'theme',          {options: {Dark: 'dark', Light: 'light'}}        );        
-        const f = pane.addFolder({          title: 'Title',          expanded: true,        });
-        const pane = new Pane({          title: 'Parameters',          expanded: true,        });
-        pane.addBinding(sketch, 'signal', {          readonly: true,          view: 'graph',          interval: 200,
-          min: -1,          max: +1,        });
-        
-        
-               
-        
-        
-        
-        */
+       
     </script>
 </body>
 
