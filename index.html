@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>code+wood toolkit</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size: large;
+            background-color: rgb(20, 20, 20);
+            color: rgb(214, 225, 255);
+            /* Remove default margin */
+        }
+
+        .pane {
+            /* This is the class for the panes */
+            background-color: rgb(71, 71, 71);
+            margin: 11px;
+            border: 1px solid #444;
+            image-rendering: pixelated;   /* For pixelated rendering */
+            border-radius: 2px;
+        }
+
+        /*  flex styles  -------------------------------------------------------------------------------- */
+        .flex-row {
+            /* apply this to containers that contains elements that should be in a row */
+            display: flex;
+            flex-direction: row;
+        }
+
+        .flex-col {
+            /* apply this to containers that contains elements that should be in a column */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .flex {
+            /* apply this to containers that should grow to fill the available space */
+            flex-grow: 1;
+        }
+
+        .fix {
+            /* apply this to containers that should not grow */
+            flex-shrink: 0;
+            flex-grow: 0;
+        }
+
+        /*    -------------------------------------------------------------------------------- */
+
+        .main {
+            /* this is the main container */
+            height: 100vh;
+        }
+
+        .menuarea {
+            /* this is the menu container */
+            margin-left: 0;
+            width: 500px;
+        }
+
+        .container {
+            /* this is the container for the canvas and the menu */
+            width: 10px;
+            height: 100%;
+        }
+
+        .title {
+            /* this is the title bar */
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            height: 40px;
+            margin-bottom: 0px;
+        }
+
+        .text {            
+            height: 100px;
+            /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
+            object-fit: contain; /* this will make the canvas fit the container */            
+            padding:20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main flex-row">
+        <div class="container flex-col flex">
+            <div id="button-bar" class="pane title flex-row">
+                <h2>code+wood toolkit</h2>
+            </div>
+            <div id="myCanvas" class="pane  flex text">
+                 A list of some of my tools;   Documented here mostly for my own use but feel free to used them if you find them useful.
+                 Documentation is sparse.
+
+                <h3><a href="./examples/autocorrect.html">autocorrect</a></h3>
+                <p>autocorrect is a fun but useless utility that will automatically try to match any methods or properties to the object you provide. it will find the _closest_ match.  First character must match to the function All characters must be in the correct order. if it finds a match, it will bind the method to the object so it does not have to search again next time.
+                just test out the example and look at the source.   Dont use this at home.  It's just fur fun. 
+
+                <h3><a href="./examples/canvas.html">canvas</a></h3>
+                <p>I'm always messing around with canvas size, auto scale, aspect ratio, etc.  this is my most recent template to remind me how it can be done nicely</p>
+
+                <h3><a href="./examples/colortools.html">colortools</a></h3>
+                <p>colortools contain some helper functions  to convert between named colors, hex colors and arrayus</p>
+                <p>it also has a function to create color quants to reduce the number of colors in an array by finding the closest match</p>
+
+                <h3><a href="./examples/svgtools.html">svgtools</a></h3>
+                <p>svgtools contain some helper functions to read and process svg files.  It can simplify the svg and optimize the order of the paths</p>
+
+
+
+
+            </div>
+<
+
+
+
+        </div>
+        
+    </div>
+
+
+    
+</body>
+
+</html>

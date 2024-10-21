@@ -115,6 +115,7 @@
 
 
         const draw = () => {
+            
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 1;
             ctx.fillStyle = Q.Color1
@@ -158,15 +159,6 @@
         const Menu = new Pane({ title: "Settings", container: document.querySelector('.menuarea') });
         resize()
         window.addEventListener('resize', updateGuiData);
-
-        Menu.addButton({
-            title: '',
-            label: 'counter',   // optional
-        });  //Menu.addBlade({ view: 'text', label: 'Canvas Settings',value:'test' });
-
-
-
-
 
         Menu.addBinding(Q, "page_width", { label: "Page width (mm)", min: 100, max: 600, step: 1 }).on('change', resize);
         Menu.addBinding(Q, "page_height", { label: "Page height (mm)", min: 100, max: 600, step: 1 }).on('change', resize);;

@@ -1,0 +1,76 @@
+<html>
+
+<head>
+    <title>Color Tools</title>
+</head>
+
+<body>
+    <h1>Color tools example</h1>
+    <canvas id="canvas" width="800" height="800" style="width:800px;height:800px;"></canvas>
+    <div>
+        <button id="color1">Quantize</button>
+    </div>
+</body>
+
+
+<script type="module">
+    import * as COLORTOOLS from "../utilities/colortools.js";
+
+
+    let d1 = document.querySelector("#color1");
+
+
+    let names = "azure,red,green,pink,beige".split(",");
+
+    names.map(n => {
+        let hex = COLORTOOLS.toHEXcolor(n);
+        let rgb = COLORTOOLS.h2a(hex);
+        console.log(n, hex, rgb.mul(255), rgb.r, rgb.g, rgb.b);
+    })
+
+    let rects = []
+
+    for (let i = 0; i < 400; i++) {
+        let x = Math.random() * 800;
+        let y = Math.random() * 800;
+        let r = Math.random() * 150+20;
+        let color = COLORTOOLS.a2h([Math.random()+.3, Math.random()+.2, Math.random()].mul(255));
+        rects.push({ x, y, r, color })
+    }
+
+
+    let ctx = document.querySelector("#canvas").getContext("2d");
+
+    rects.map(r => {
+        ctx.beginPath();
+        ctx.fillStyle = r.color;
+        ctx.rect(r.x, r.y, r.r, r.r);
+        ctx.fill();
+    })
+
+    document.querySelector("#color1").addEventListener("click", () => {
+        let colorQuants = COLORTOOLS.getColorQuants(rects, Q.quants, i => rects[i].color)
+        console.log(colorQuants)
+        rects.map((r, i) => {
+            ctx.beginPath();
+            ctx.fillStyle = COLORTOOLS.getClosestColor(r.color, colorQuants);
+            ctx.rect(r.x, r.y, r.r, r.r);
+            ctx.fill();
+        })
+    })
+
+    // create rectangle array
+
+
+
+
+
+
+
+
+
+
+
+</script>
+
+</html>

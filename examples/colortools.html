@@ -1,76 +1,232 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <title>Color Tools</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colortools Example</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size: large;
+            background-color: rgb(20, 20, 20);
+            color: rgb(214, 225, 255);
+            /* Remove default margin */
+        }
+
+        .pane {
+            /* This is the class for the panes */
+            background-color: rgb(71, 71, 71);
+            margin: 11px;
+            border: 1px solid #444;
+            image-rendering: pixelated;
+            /* For pixelated rendering */
+            border-radius: 2px;
+        }
+
+        /*  flex styles  -------------------------------------------------------------------------------- */
+        .flex-row {
+            /* apply this to containers that contains elements that should be in a row */
+            display: flex;
+            flex-direction: row;
+        }
+
+        .flex-col {
+            /* apply this to containers that contains elements that should be in a column */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .flex {
+            /* apply this to containers that should grow to fill the available space */
+            flex-grow: 1;
+        }
+
+        .fix {
+            /* apply this to containers that should not grow */
+            flex-shrink: 0;
+            flex-grow: 0;
+        }
+
+        /*    -------------------------------------------------------------------------------- */
+
+        .main {
+            /* this is the main container */
+            height: 100vh;
+        }
+
+        .menuarea {
+            /* this is the menu container */
+            margin-left: 0;
+            width: 500px;
+        }
+
+        .container {
+            /* this is the container for the canvas and the menu */
+            width: 10px;
+            height: 100%;
+        }
+
+        .title {
+            /* this is the title bar */
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            height: 40px;
+            margin-bottom: 0px;
+        }
+        .text {
+            padding:10px;
+            margin-bottom: 0px;;
+        }
+        .canvas {
+            height: 100px;
+            /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
+            object-fit: contain;
+            /* this will make the canvas fit the container */
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Color tools example</h1>
-    <canvas id="canvas" width="800" height="800" style="width:800px;height:800px;"></canvas>
-    <div>
-        <button id="color1">Quantize</button>
+    <div class="main flex-row">
+        <div class="container flex-col flex">
+            <div id="button-bar" class="pane title flex-row">
+                <h2>Colortools Example</h2>
+            </div>
+            <div id="data" class="pane  text">   
+                <p>example of color quants.<br/>  below an example of colorname.toHEXcolor and h2a (hex to array) view the source for more details</p>
+                
+            </div>
+            <canvas id="myCanvas" class="pane canvas flex"></canvas>
+        </div>
+        <div class="pane menuarea fix"> </div>
     </div>
-</body>
 
 
-<script type="module">
-    import * as COLORTOOLS from "../utilities/colortools.js";
+    <script type="module">
+        import * as COLORTOOLS from "../utilities/colortools.js";
+
+        import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
 
 
-    let d1 = document.querySelector("#color1");
+        // Set up the initial parameters. these can also be passed in the URL eg ?page_width=300&page_height=300
+        let Q = {
+            quants: 0,
+            page_width: 300,
+            page_height: 200,
+            dpi:80,
+            Colortext: "red",
+            Color: "#FF4040",
+            ColorArray: [1, 0, 1]
+        };
+        new URLSearchParams(location.search).forEach((v, k) => Q[k] = v || 1);    // get URL parameters if any. if it has no value, it can used as a boolean and is set to 1
 
+        //=======================================================================================================
+        // convert names to hex or rgb array
+        let names = "azure,red,green,pink,beige".split(",");
 
-    let names = "azure,red,green,pink,beige".split(",");
+        names.map(n => {
+            let hex = COLORTOOLS.toHEXcolor(n);
+            let rgb = COLORTOOLS.h2a(hex);
+            document.querySelector("#data").innerHTML += `<p>${n} -> ${hex} -> [${rgb.mul(255)}] , [${rgb.r.toFixed(2)} ${rgb.g.toFixed(2)} ${rgb.b.toFixed(2)}]</p>`;
 
-    names.map(n => {
-        let hex = COLORTOOLS.toHEXcolor(n);
-        let rgb = COLORTOOLS.h2a(hex);
-        console.log(n, hex, rgb.mul(255), rgb.r, rgb.g, rgb.b);
-    })
-
-    let rects = []
-
-    for (let i = 0; i < 400; i++) {
-        let x = Math.random() * 800;
-        let y = Math.random() * 800;
-        let r = Math.random() * 150+20;
-        let color = COLORTOOLS.a2h([Math.random()+.3, Math.random()+.2, Math.random()].mul(255));
-        rects.push({ x, y, r, color })
-    }
-
-
-    let ctx = document.querySelector("#canvas").getContext("2d");
-
-    rects.map(r => {
-        ctx.beginPath();
-        ctx.fillStyle = r.color;
-        ctx.rect(r.x, r.y, r.r, r.r);
-        ctx.fill();
-    })
-
-    document.querySelector("#color1").addEventListener("click", () => {
-        let colorQuants = COLORTOOLS.getColorQuants(rects, 4, i => rects[i].color)
-        console.log(colorQuants)
-        rects.map((r, i) => {
-            ctx.beginPath();
-            ctx.fillStyle = COLORTOOLS.getClosestColor(r.color, colorQuants);
-            ctx.rect(r.x, r.y, r.r, r.r);
-            ctx.fill();
         })
-    })
+        // create n array of colored rectangles
+        let rects = []
 
-    // create rectangle array
+        let newrects = _ => {
+             rects = []
+            for (let i = 0; i < 400; i++) {
+                let x = Math.random() * canvas.width;
+                let y = Math.random() * canvas.height;
+                let r = Math.random() * Math.min(canvas.width, canvas.height) / 6 + 20;
+                let color = COLORTOOLS.a2h([Math.random(), Math.random(), Math.random()].mul(255));
+                rects.push({ x, y, r, color })
+            }
+        }
+        newrects();
+        const draw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let colorQuants;
+            if (Q.quants > 0) {
+                colorQuants = COLORTOOLS.getColorQuants(rects, Q.quants, i => rects[i].color)
+            }
+            rects.map(r => {
+                ctx.beginPath();
+                ctx.fillStyle = Q.quants == 0 ? r.color : COLORTOOLS.getClosestColor(r.color, colorQuants);
+                ctx.rect(r.x, r.y, r.r, r.r);
+                ctx.fill();
+            })
+
+
+        }
+
+        const resize = () => {
+            // Update the CSS variable for aspect ratio
+            document.documentElement.style.setProperty('--aspect-ratio', Q.page_width / Q.page_height);
+            // Set the canvas's internal drawing dimensions
+            canvas.width = Q.page_width * Q.dpi / 25.4;
+            canvas.height = Q.page_height * Q.dpi / 25.4;
+            draw()
+            updateGuiData();
+        };
+
+
+        const updateGuiData = _ => {
+            Q.width = canvas.width;
+            Q.height = canvas.height;
+            // canvas width and height of the element
+            Q.W_width = canvas.clientWidth;
+            Q.W_height = canvas.clientHeight;
+            newrects();
+            draw()
+            Menu.refresh();
+        }
+
+
+
+        // Add GUI controls
+        //https://tweakpane.github.io/docs/quick-tour/
+        const Menu = new Pane({ title: "Settings", container: document.querySelector('.menuarea') });
+        resize()
+        window.addEventListener('resize', updateGuiData);
+        const size=Menu.addFolder({title:'Page Size',expanded:false});
+        size.addBinding(Q, "page_width", { label: "Page width (mm)", min: 100, max: 600, step: 1 }).on('change', resize);
+        size.addBinding(Q, "page_height", { label: "Page height (mm)", min: 100, max: 600, step: 1 }).on('change', resize);;
+        size.addBinding(Q, "dpi", { label: "Canvas Resolution (dpi)", min: 1, max: 600, step: 1 }).on('change', resize);;
+        size.addBinding(Q, "dpi", { readonly: true, label: "Resolution (px/mm) ", format: (v) => (v / 25.4).toFixed(2), });
+
+        Menu.addBinding(Q,'quants',{label:' Quantize Colors',min:0,max:8,step:1}).on('change',draw);
+
+        
+
+
+        size.addBinding(Q, "width", { readonly: true, label: "Canvas Width (px)", format: (v) => v.toFixed(0), });
+        size.addBinding(Q, "height", { readonly: true, label: "Canvas Height (px)", format: (v) => v.toFixed(0), });
+        size.addBinding(Q, "W_width", { readonly: true, label: "Canvas Element Width (px)", format: (v) => v.toFixed(0), });
+        size.addBinding(Q, "W_height", { readonly: true, label: "Canvas Element Height (px)", format: (v) => v.toFixed(0), });
+
+
+
+        let ME = Menu.element, MS = ME.style;
+
+        MS.height = '100%';
+        MS.width = '100%';
+        MS.borderRadius = '2px';
+        // change the pane font style, color and size
+        MS.fontFamily = 'Arial';
+        MS.fontSize = '20px';
+        MS.setProperty('--tp-blade-value-width', '200px');
 
 
 
 
-
-
-
-
-
-
-
-</script>
+    </script>
+</body>
 
 </html>
