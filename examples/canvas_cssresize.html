@@ -11,7 +11,7 @@
             margin: 0;
             font-family: Verdana, Geneva, Tahoma, sans-serif;
             font-size: large;
-            background-color: rgb(4, 24, 43);
+            background-color: rgb(20, 20, 20);
             color: rgb(214, 225, 255);
             /* Remove default margin */
         }
@@ -20,11 +20,9 @@
             /* This is the class for the panes */
             background-color: rgb(71, 71, 71);
             margin: 11px;
-            border: 1px solid #222;
-            image-rendering: pixelated;
-            border-radius: 3px;
-            /* For pixelated rendering */
-
+            border: 1px solid #444;
+            image-rendering: pixelated;   /* For pixelated rendering */
+            border-radius: 2px;
         }
 
         /*  flex styles  -------------------------------------------------------------------------------- */
@@ -53,29 +51,36 @@
 
         /*    -------------------------------------------------------------------------------- */
 
-        .main { /* this is the main container */
+        .main {
+            /* this is the main container */
             height: 100vh;
         }
-        .menuarea { /* this is the menu container */
+
+        .menuarea {
+            /* this is the menu container */
             margin-left: 0;
             width: 500px;
         }
-        .container {    /* this is the container for the canvas and the menu */
+
+        .container {
+            /* this is the container for the canvas and the menu */
             width: 10px;
             height: 100%;
         }
-        .title {    /* this is the title bar */
+
+        .title {
+            /* this is the title bar */
             align-items: center;
             justify-content: center;
             overflow: hidden;
             height: 40px;
             margin-bottom: 0px;
         }
-        .canvas {   /* this is the canvas */
+
+        .canvas {            
             height: 100px;
             /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
-            object-fit: contain;
-            /* this will make the canvas fit the container */
+            object-fit: contain; /* this will make the canvas fit the container */            
         }
     </style>
 </head>
@@ -91,28 +96,28 @@
         <div class="pane menuarea fix"> </div>
     </div>
 
-    
+
     <script type="module">
         import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
         const canvas = document.getElementById('myCanvas');
         const ctx = canvas.getContext('2d');
 
-        
+
         // Set up the initial parameters. these can also be passed in the URL eg ?page_width=300&page_height=300
         let Q = {
             page_width: 300,
             page_height: 200,
-            canvasResolution: 10,
+            dpi: 10,
             Color1: "#FF4040",
-            Color2: "#40AAFF",            
+            Color2: "#40AAFF",
         };
         new URLSearchParams(location.search).forEach((v, k) => Q[k] = v || 1);    // get URL parameters if any. if it has no value, it can used as a boolean and is set to 1
 
 
-        const draw=()=>{
+        const draw = () => {
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 1;
-            ctx.fillStyle =  Q.Color1
+            ctx.fillStyle = Q.Color1
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = Q.Color2;
             ctx.beginPath();
@@ -121,7 +126,7 @@
             ctx.lineTo(canvas.width / 2, canvas.height);
             ctx.lineTo(0, canvas.height / 2);
             ctx.closePath();
-            ctx.fill();                        
+            ctx.fill();
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
         }
@@ -130,14 +135,14 @@
             // Update the CSS variable for aspect ratio
             document.documentElement.style.setProperty('--aspect-ratio', Q.page_width / Q.page_height);
             // Set the canvas's internal drawing dimensions
-            canvas.width = Q.page_width * Q.canvasResolution;
-            canvas.height = Q.page_height * Q.canvasResolution;
+            canvas.width = Q.page_width * Q.dpi/25.4;
+            canvas.height = Q.page_height * Q.dpi/25.4;
             draw()
             updateGuiData();
-       };
-     
-      
-        const updateGuiData=_=>{
+        };
+
+
+        const updateGuiData = _ => {
             Q.width = canvas.width;
             Q.height = canvas.height;
             // canvas width and height of the element
@@ -145,7 +150,7 @@
             Q.W_height = canvas.clientHeight;
             Menu.refresh();
         }
-        
+
 
 
         // Add GUI controls
@@ -153,22 +158,23 @@
         const Menu = new Pane({ title: "Settings", container: document.querySelector('.menuarea') });
         resize()
         window.addEventListener('resize', updateGuiData);
-        let guiItems = // array with name, min, (optional)max,(optional) step (optional)
-            [
-                ['page_width', 100, 600, 10],
-                ['page_height', 100, 400, 10],
-                ['canvasResolution', 0.01, 10],
-                ['Color1']       ,      
-                ['Color2']             
-            ];
+
+        Menu.addButton({
+            title: '',
+            label: 'counter',   // optional
+        });  //Menu.addBlade({ view: 'text', label: 'Canvas Settings',value:'test' });
 
 
-        for (const item of guiItems) {
-            let [name, min, max, step] = item;
-            let options = { min, max, step }
-            item.forEach(v => { if (v === undefined) options[i] = null });
-            Menu.addBinding(Q, name, options).on('change', resize);
-        }
+
+
+
+        Menu.addBinding(Q, "page_width", { label: "Page width (mm)", min: 100, max: 600, step: 1 }).on('change', resize);
+        Menu.addBinding(Q, "page_height", { label: "Page height (mm)", min: 100, max: 600, step: 1 }).on('change', resize);;
+        Menu.addBinding(Q, "dpi", { label: "Canvas Resolution (dpi)", min: 1, max: 600, step: 1 }).on('change', resize);;
+        Menu.addBinding(Q, "dpi", { readonly: true, label: "Resolution (px/mm) ", format: (v) => (v / 25.4).toFixed(2), });
+
+        Menu.addBinding(Q, 'Color1', { label: 'Color 1' }).on('change', draw);;
+        Menu.addBinding(Q, 'Color2', { label: 'Color 2' }).on('change', draw);;
 
         let btn = Menu.addButton({ title: 'Reset' })
         btn.on('click', _ => {
@@ -179,10 +185,12 @@
 
 
 
-        Menu.addBinding(Q,"width",{readonly:true, label:"Canvas Width ",format: (v) => v.toFixed(0),});
-        Menu.addBinding(Q,"height",{readonly:true, label:"Canvas Height ",format: (v) => v.toFixed(0),});
-        Menu.addBinding(Q,"W_width",{readonly:true, label:"Element Width ",format: (v) => v.toFixed(0),});
-        Menu.addBinding(Q,"W_height",{readonly:true, label:"Element Height ",format: (v) => v.toFixed(0),});
+        Menu.addBinding(Q, "width", { readonly: true, label: "Canvas Width (px)", format: (v) => v.toFixed(0), });
+        Menu.addBinding(Q, "height", { readonly: true, label: "Canvas Height (px)", format: (v) => v.toFixed(0), });
+        Menu.addBinding(Q, "W_width", { readonly: true, label: "Canvas Element Width (px)", format: (v) => v.toFixed(0), });
+        Menu.addBinding(Q, "W_height", { readonly: true, label: "Canvas Element Height (px)", format: (v) => v.toFixed(0), });
+
+     
 
         let ME = Menu.element, MS = ME.style;
 
@@ -194,7 +202,9 @@
         MS.fontSize = '20px';
         MS.setProperty('--tp-blade-value-width', '200px');
 
-       
+
+
+
     </script>
 </body>
 
