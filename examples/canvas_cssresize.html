@@ -9,74 +9,106 @@
         html,
         body {
             margin: 0;
-            padding: 0;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size:large;
+            background-color: rgb(4, 24, 43);
+            color: rgb(214, 225, 255);
+            /* Remove default margin */
         }
 
         .pane {
-            background-color: cornsilk;
+            /* This is the class for the panes */
+            background-color: rgb(71, 71, 71);
             margin: 11px;
-            border: 1px solid #AAA;
-            image-rendering: pixelated;             /* For pixelated rendering */
-            
+            border: 1px solid #222;
+            image-rendering: pixelated;
+            border-radius: 3px;
+            /* For pixelated rendering */
+
         }
 
-        .main {
-            width:100%;
-            height: 100%;        
+
+
+        /*  flex styles  -------------------------------------------------------------------------------- */
+        .flex-row {
+            /* apply this to containers that contains elements that should be in a row */
             display: flex;
             flex-direction: row;
-        }   
-        .menuarea {
-            margin-left:0;
-            width:300px;
-            flex-shrink: 0;
         }
-       
 
-        .container {
-            flex-grow: 1;
+        .flex-col {
+            /* apply this to containers that contains elements that should be in a column */
             display: flex;
             flex-direction: column;
+        }
+
+        .flex {
+            /* apply this to containers that should grow to fill the available space */
+            flex-grow: 1;
+        }
+
+        .fix {
+            /* apply this to containers that should not grow */
+            flex-shrink: 0;
+            flex-grow: 0;
+        }
+
+        /*    -------------------------------------------------------------------------------- */
+
+        .main {
+            height: 100vh;
+        }
+
+        .menuarea {
+            margin-left: 0;
+            width: 500px;
+        }
+
+        .container {
+            width:10px;
             height: 100%;
         }
 
-        .buttons {
+        .title {
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            overflow: hidden;
             height: 40px;
-            flex-shrink: 0;
-            margin-bottom: 0px;
+            margin-bottom: 0px;            
         }
 
         .canvas {
             height: 100px;
-            /* this is basically the minimuy height */
-            flex-grow: 1;
-            /* Takes up the remaining space */
+            /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
             object-fit: contain;
-            /* This is the key to keep the aspect ratio */
+            /* this will make the canvas fit the container */
         }
     </style>
 </head>
 
 <body>
-    <div class="main">
-        <div class="container">
-            <div id="button-bar" class="pane buttons"></div>
-            <canvas id="myCanvas" class="pane canvas"></canvas>
+    <div class="main flex-row">
+        <div class="container flex-col flex">
+            <div id="button-bar" class="pane title">
+            <h2>Canvas and CSS Example</h2>
+            </div>
+            <canvas id="myCanvas" class="pane canvas flex"></canvas>
         </div>
-        <div class="pane menuarea"> </div>
+        <div class="pane menuarea fix"> </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
     <script type="module">
+        import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
         const canvas = document.getElementById('myCanvas');
         const ctx = canvas.getContext('2d');
 
         let Q = {
             page_width: 300,
             page_height: 200,
-            canvasResolution: 10
+            canvasResolution: 10,
+            canvasColor: "#FFAABB",
+
         };
 
         const resize = () => {
@@ -111,18 +143,61 @@
 
         resize();
 
-        // window.addEventListener('resize', resize);
-
         // Add GUI controls
+        //https://tweakpane.github.io/docs/quick-tour/
+        const Menu = new Pane({ title: "Settings" , container: document.querySelector('.menuarea')});
+
+        let guiItems = // array with name, min, (optional)max,(optional) step (optional)
+            [
+                ['page_width', 100, 600, 10],
+                ['page_height', 100, 400, 10],
+                ['canvasResolution', 0.01, 10],
+                ['canvasColor'],
+            ];
+
+
+        for (const item of guiItems) {
+            let [name, min, max, step] = item;
+            let options = { min, max, step }
+            item.forEach(v => { if (v === undefined) options[i] = null });
+            Menu.addBinding(Q, name, options).on('change', resize);
+        }
+
+        let btn=Menu.addButton({title: 'Reset'})
+            btn.on('click',_ => {
+                Object.assign(Q, { page_width: 300, page_height: 200, canvasResolution: 10, canvasColor: "#FFAABB" });                        
+            Menu.refresh();
+            }
+        );
+
+        let ME = Menu.element, MS = ME.style;
+       
+        MS.height = '100%';
+        MS.width = '100%';
+        MS.borderRadius = '2px';
+        // change the pane font style, color and size
+        MS.fontFamily = 'Arial';
+        MS.fontSize = '20px';
+        MS.setProperty('--tp-blade-value-width', '200px');
 
 
 
-        const gui = new dat.GUI();
-        gui.add(Q, 'page_width', 0, 600).onChange(resize);
-        gui.add(Q, 'page_height', 0, 400).onChange(resize);
-        gui.add(Q, 'canvasResolution', 0.1, 10).onChange(resize);
 
-
+        /*
+        const PARAMS = {          percentage: 50,          theme: 'dark',        };
+        pane.addBinding(          PARAMS, 'percentage',          {min: 0, max: 100, step: 10}        );
+        pane.addBinding(          PARAMS, 'theme',          {options: {Dark: 'dark', Light: 'light'}}        );        
+        const f = pane.addFolder({          title: 'Title',          expanded: true,        });
+        const pane = new Pane({          title: 'Parameters',          expanded: true,        });
+        pane.addBinding(sketch, 'signal', {          readonly: true,          view: 'graph',          interval: 200,
+          min: -1,          max: +1,        });
+        
+        
+               
+        
+        
+        
+        */
     </script>
 </body>
 
