@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&display=swap" rel="stylesheet">
+<style>body{margin:0;}</style>
+</head>
+<body>
+<div id="myContainer"></div>
+<script>
+function drawGridText({rows:e=6,cols:t=6,cellSize:l=40,palette:n=["black"],text:i="",elementId:o=""}){let $=l/10,a=document.getElementById(o),d=document.createElement("canvas");d.width=t*l,d.height=e*l,a.appendChild(d);let f=d.getContext("2d");f.font=`${l}px 'Rubik Mono One'`,f.textAlign="center",f.textBaseline="middle";let r=(e,t)=>Array(e+1).fill().map((e,l)=>t(l));r(t,t=>{f.moveTo(t*l,0),f.lineTo(t*l,e*l),f.stroke()}),r(e,e=>{f.moveTo(0,e*l),f.lineTo(t*l,e*l),f.stroke()});let c=0,g=0,h=n[0];for(let m=0;m<i.length;m++){let x=i[m];if("\\"===x){let T=parseInt(i[++m],10);!isNaN(T)&&T<n.length&&(h=n[T]);continue}if((g>=t||"\n"===x)&&(g=0,++c>=e))break;" "!==x&&"\n"!==x&&(f.fillStyle=h,f.fillText(x,g*l+l/2,c*l+l/2+$)),g++}}
+
+// Example usage:
+drawGridText({
+  cols:6,
+  rows:6,  
+  cellSize:50,
+  palette:["black","#2978a0","#a42d2b","#006400","#d9d9d9"],
+  text:"\\2studio \\1CODE\\0+  \\3WOOD          \\4AR     T",
+  elementId:"myContainer"
+});
+
+drawGridText({
+  cols:6,
+  rows:5  ,
+  cellSize:50,
+  palette:["black","#2978a0","#a42d2b","#006400","#d9d9d9"],
+  text:"      \\2studio \\1CODE\\0+  \\3WOOD          \\4AR     T",
+  elementId:"myContainer"
+});
+
+drawGridText({
+  cols:5,
+  rows:5,  
+  cellSize:50,
+  palette:["black","#2978a0","#a42d2b","#006400","#d9d9d9"],
+  text:"     \\2studio\\1CODE\\0+\\3WOOD          \\4AR     T",
+  elementId:"myContainer"
+});
+
+drawGridText({
+  cols:9,
+  rows:2,  
+  cellSize:50,
+  palette:["black","#2978a0","#a42d2b","#006400","#d9d9d9"],
+  text:"\\2studio   \\1CODE\\0+\\3WOOD          \\4AR     T",
+  elementId:"myContainer"
+});
+
+</script>
+</body>
+</html>
