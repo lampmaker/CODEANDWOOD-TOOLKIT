@@ -1,0 +1,85 @@
+html,
+body {
+    margin: 0;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-size: large;
+    background-color: rgb(20, 20, 20);
+    color: rgb(214, 225, 255);
+    /* Remove default margin */
+}
+
+.pane {
+    /* This is the class for the panes */
+    background-color: rgb(71, 71, 71);
+    margin: 10px;
+    /*border: 1px solid #444;*/
+    /*image-rendering: pixelated;   /* For pixelated rendering */
+    border-radius: 10px;
+    margin-right:0px;
+}
+
+.divider {
+    width: 10px; 
+    cursor: col-resize;
+    background-color: rgb(20, 20, 20);
+}
+
+/*  flex styles  -------------------------------------------------------------------------------- */
+.flex-row {
+    /* apply this to containers that contains elements that should be in a row */
+    display: flex;
+    flex-direction: row;
+}
+
+.flex-col {
+    /* apply this to containers that contains elements that should be in a column */
+    display: flex;
+    flex-direction: column;
+}
+
+.flex {
+    /* apply this to containers that should grow to fill the available space */
+    flex-grow: 1;
+}
+
+.fix {
+    /* apply this to containers that should not grow */
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+/*    -------------------------------------------------------------------------------- */
+
+.main {
+    /* this is the main container */
+    height: 100vh;
+}
+
+.menuarea {
+    /* this is the menu container */
+    margin-left: 0;
+    width: 300px;
+
+}
+
+.container {
+    /* this is the container for the canvas and the menu */
+    width: 10px;
+    height: 100%;
+}
+
+.title {
+    /* this is the title bar */
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    height: 40px;
+    margin-bottom: 0px;
+}
+
+.canvas {            
+    
+    height:100px;
+    /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
+    object-fit: contain; /* this will make the canvas fit the container */            
+}

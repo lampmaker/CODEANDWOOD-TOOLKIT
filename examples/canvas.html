@@ -5,102 +5,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas Example</title>
-    <style>
-        html,
-        body {
-            margin: 0;
-            font-family: Verdana, Geneva, Tahoma, sans-serif;
-            font-size: large;
-            background-color: rgb(20, 20, 20);
-            color: rgb(214, 225, 255);
-            /* Remove default margin */
-        }
-
-        .pane {
-            /* This is the class for the panes */
-            background-color: rgb(71, 71, 71);
-            margin: 11px;
-            border: 1px solid #444;
-            image-rendering: pixelated;   /* For pixelated rendering */
-            border-radius: 2px;
-        }
-
-        /*  flex styles  -------------------------------------------------------------------------------- */
-        .flex-row {
-            /* apply this to containers that contains elements that should be in a row */
-            display: flex;
-            flex-direction: row;
-        }
-
-        .flex-col {
-            /* apply this to containers that contains elements that should be in a column */
-            display: flex;
-            flex-direction: column;
-        }
-
-        .flex {
-            /* apply this to containers that should grow to fill the available space */
-            flex-grow: 1;
-        }
-
-        .fix {
-            /* apply this to containers that should not grow */
-            flex-shrink: 0;
-            flex-grow: 0;
-        }
-
-        /*    -------------------------------------------------------------------------------- */
-
-        .main {
-            /* this is the main container */
-            height: 100vh;
-        }
-
-        .menuarea {
-            /* this is the menu container */
-            margin-left: 0;
-            width: 500px;
-        }
-
-        .container {
-            /* this is the container for the canvas and the menu */
-            width: 10px;
-            height: 100%;
-        }
-
-        .title {
-            /* this is the title bar */
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            height: 40px;
-            margin-bottom: 0px;
-        }
-
-        .canvas {            
-            height: 100px;
-            /* this  basically sets the minimum height  if you leave it out, the canvas will be the default height */
-            object-fit: contain; /* this will make the canvas fit the container */            
-        }
-    </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
     <div class="main flex-row">
         <div class="container flex-col flex">
             <div id="button-bar" class="pane title flex-row">
-                <h2>Canvas and CSS Example</h2>
+                <h2>LINEA</h2>
             </div>
-            <canvas id="myCanvas" class="pane canvas flex"></canvas>
+            <div id="here" class="pane flex" style="position:relative;">
+
+                <canvas id="canvas"
+                    style="position: absolute; z-index: 1; height:100%;width:100%; object-fit: contain;"></canvas>
+                <canvas id="canvas2"
+                    style="position: absolute; z-index: 3; height:100%;width:100%; object-fit: contain;"></canvas>
+                <div id="drw" style="position: absolute; z-index: 4; height:100%;width:100%; object-fit: contain;">
+                </div>
+            </div>
         </div>
-        <div class="pane menuarea fix"> </div>
+        <div id="divider" class="divider"></div>
+        <div id="menuarea" class="menuarea fix flex-col" style="margin-left:0">
+            <div id="menu" class="pane fix" style="margin-left:0"> </div>
+            <div id="log" class="pane flex"
+                style="margin-left:0;margin-top:0; padding:10px; overflow-y: auto; color:rgb(161, 161, 161); max-height: 100vh;">
+            </div>
+        </div>
+    </div>
     </div>
 
 
     <script type="module">
         import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
-        const canvas = document.getElementById('myCanvas');
+        const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+
+        let D = document, W = window, U = URLSearchParams, q = (e) => document.getElementById(e), AE = (e, n, f) => e.addEventListener(n, f);
+        //======================================================================================================================           
+        let isDragging = false, menu = q('menuarea')
+        AE(q('divider'), 'mousedown', e => { isDragging = true; D.body.style.cursor = 'col-resize'; });
+        AE(D, 'mousemove', e => { if (!isDragging) return; const newWidth = W.innerWidth - e.clientX; if (newWidth > 50 && newWidth < W.innerWidth - 50) menu.style.width = `${newWidth}px`; });
+        AE(D, 'mouseup', _ => { isDragging = false; D.body.style.cursor = ''; });
+
+
 
 
         // Set up the initial parameters. these can also be passed in the URL eg ?page_width=300&page_height=300
@@ -115,7 +62,7 @@
 
 
         const draw = () => {
-            
+
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 1;
             ctx.fillStyle = Q.Color1
@@ -136,8 +83,8 @@
             // Update the CSS variable for aspect ratio
             document.documentElement.style.setProperty('--aspect-ratio', Q.page_width / Q.page_height);
             // Set the canvas's internal drawing dimensions
-            canvas.width = Q.page_width * Q.dpi/25.4;
-            canvas.height = Q.page_height * Q.dpi/25.4;
+            canvas.width = Q.page_width * Q.dpi / 25.4;
+            canvas.height = Q.page_height * Q.dpi / 25.4;
             draw()
             updateGuiData();
         };
@@ -156,7 +103,7 @@
 
         // Add GUI controls
         //https://tweakpane.github.io/docs/quick-tour/
-        const Menu = new Pane({ title: "Settings", container: document.querySelector('.menuarea') });
+        const Menu = new Pane({ title: "Settings", container: document.querySelector('#menu') });
         resize()
         window.addEventListener('resize', updateGuiData);
 
@@ -182,7 +129,7 @@
         Menu.addBinding(Q, "W_width", { readonly: true, label: "Canvas Element Width (px)", format: (v) => v.toFixed(0), });
         Menu.addBinding(Q, "W_height", { readonly: true, label: "Canvas Element Height (px)", format: (v) => v.toFixed(0), });
 
-     
+
 
         let ME = Menu.element, MS = ME.style;
 
